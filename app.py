@@ -24,12 +24,6 @@ import pandas as pd
 import requests
 import hmac
 
-# function login di sini...
-
-check_login()
-
-st.title("Nihaoma Student Operations")
-
 # isi app Anda mulai dari sini
 
 with st.sidebar:
@@ -84,6 +78,12 @@ def check_login():
             st.form_submit_button("Masuk", on_click=try_login)
 
         st.stop()
+
+# function login di sini...
+
+check_login()
+
+st.title("Nihaoma Student Operations")
 
 SCRIPT_URL = (
     st.secrets.get("SCRIPT_URL")
