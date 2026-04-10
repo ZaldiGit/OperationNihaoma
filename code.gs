@@ -1,6 +1,6 @@
 const CONFIG = {
   SPREADSHEET_ID: '1vfR-3sN9kSK6kh2R5AO2wmBjvd2bAEQCPG8LjQaTrw8',
-  ROOT_FOLDER_ID: '1UqGjce1bG60DzSRiP6CcCb_DL0ElOe-6', // isi jika ingin file dokumen masuk ke folder Drive tertentu
+  ROOT_FOLDER_ID: '1qNRyyDJHmfaJ4cAQEuCZNt6cUB06mRgT', // isi jika ingin file dokumen masuk ke folder Drive tertentu
   WRITE_TOKEN: 'nihaoma-live-7f4c9b2e1a8d6f3c5e9a2b7d1c4f8a6',
   TIMEZONE: 'Asia/Jakarta',
   REFERENCES_SHEET: 'REFERENCES',
