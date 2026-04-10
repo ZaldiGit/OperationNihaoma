@@ -17,28 +17,18 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 st.set_page_config(page_title="Nihaoma Student Operations", layout="wide")
 
 import streamlit as st
-import hmac
-
-import streamlit as st
 import pandas as pd
 import requests
 import hmac
 
-# isi app Anda mulai dari sini
-
-with st.sidebar:
-    st.success(f"Login sebagai: {st.session_state.get('auth_user', '-')}")
-    st.button("Logout", on_click=logout, use_container_width=True)
-
-    st.markdown("### Menu")
-    page = st.radio("Pilih menu", ["Dashboard", "Calon Mahasiswa", "Dokumen", "Invoice & Pembayaran"])
+# function logout
 def logout():
     st.session_state["auth_ok"] = False
     st.session_state["auth_user"] = None
     st.session_state["login_password"] = ""
     st.rerun()
 
-
+# function check_login
 def check_login():
     if "auth_ok" not in st.session_state:
         st.session_state["auth_ok"] = False
@@ -79,8 +69,7 @@ def check_login():
 
         st.stop()
 
-# function login di sini...
-
+# BARU dipanggil di sini
 check_login()
 
 st.title("Nihaoma Student Operations")
