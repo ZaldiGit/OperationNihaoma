@@ -815,9 +815,8 @@ import plotly.express as px
 import requests
 import streamlit as st
 
-st.set_page_config(page_title="Nihaoma Student Operations", layout="wide")
 
-SCRIPT_URL = st.secrets.get("SCRIPT_URL", os.getenv("SCRIPT_URL", ""))
+APPS_SCRIPT_URL = st.secrets.get("APPS_SCRIPT_URL", os.getenv("APPS_SCRIPT_URL", ""))
 WRITE_TOKEN = st.secrets.get("WRITE_TOKEN", os.getenv("WRITE_TOKEN", ""))
 TIMEOUT = 60
 
