@@ -16,6 +16,57 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 
 st.set_page_config(page_title="Nihaoma Student Operations", layout="wide")
 
+import streamlit as st
+import hmac
+
+
+def logout():
+    st.session_state["auth_ok"] = False
+    st.session_state["auth_user"] = None
+    st.session_state["login_password"] = ""
+    st.rerun()
+
+
+def check_login():
+    if "auth_ok" not in st.session_state:
+        st.session_state["auth_ok"] = False
+    if "auth_user" not in st.session_state:
+        st.session_state["auth_user"] = None
+    if "auth_error" not in st.session_state:
+        st.session_state["auth_error"] = ""
+
+    users = st.secrets.get("APP_USERS", {})
+
+    def try_login():
+        username = str(st.session_state.get("login_username", "")).strip()
+        password = str(st.session_state.get("login_password", ""))
+
+        saved_password = users.get(username)
+        if saved_password and hmac.compare_digest(password, str(saved_password)):
+            st.session_state["auth_ok"] = True
+            st.session_state["auth_user"] = username
+            st.session_state["auth_error"] = ""
+            st.session_state["login_password"] = ""
+        else:
+            st.session_state["auth_ok"] = False
+            st.session_state["auth_user"] = None
+            st.session_state["auth_error"] = "Username atau password salah."
+            st.session_state["login_password"] = ""
+
+    if not st.session_state["auth_ok"]:
+        st.markdown("## Login Nihaoma Student Operations")
+        st.caption("Masuk dengan username dan password admin.")
+
+        if st.session_state["auth_error"]:
+            st.error(st.session_state["auth_error"])
+
+        with st.form("login_form"):
+            st.text_input("Username", key="login_username")
+            st.text_input("Password", type="password", key="login_password")
+            st.form_submit_button("Masuk", on_click=try_login)
+
+        st.stop()
+
 SCRIPT_URL = (
     st.secrets.get("SCRIPT_URL")
     or st.secrets.get("APPS_SCRIPT_URL")
