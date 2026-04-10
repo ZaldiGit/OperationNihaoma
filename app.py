@@ -823,7 +823,7 @@ TIMEOUT = 60
 
 # ---------- API helpers ----------
 def ensure_config() -> None:
-    if not SCRIPT_URL or not WRITE_TOKEN:
+    if not APPS_SCRIPT_URL or not WRITE_TOKEN:
         st.error("SCRIPT_URL atau WRITE_TOKEN belum diisi di secrets / environment.")
         st.stop()
 
@@ -831,7 +831,7 @@ def ensure_config() -> None:
 def api_get(action: str) -> Dict[str, Any]:
     ensure_config()
     resp = requests.get(
-        SCRIPT_URL,
+        APPS_SCRIPT_URL,
         params={"action": action, "token": WRITE_TOKEN},
         timeout=TIMEOUT,
     )
