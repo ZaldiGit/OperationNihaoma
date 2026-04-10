@@ -72,8 +72,6 @@ def check_login():
 # BARU dipanggil di sini
 check_login()
 
-st.title("Nihaoma Student Operations")
-
 SCRIPT_URL = (
     st.secrets.get("SCRIPT_URL")
     or st.secrets.get("APPS_SCRIPT_URL")
