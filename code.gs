@@ -1,7 +1,7 @@
 const CONFIG = {
   SPREADSHEET_ID: '1vfR-3sN9kSK6kh2R5AO2wmBjvd2bAEQCPG8LjQaTrw8',
-  ROOT_FOLDER_ID: '', // isi jika ingin file dokumen masuk ke folder Drive tertentu
-  WRITE_TOKEN: 'ganti-dengan-write-token-baru',
+  ROOT_FOLDER_ID: '1O6NHAyAUyRN8yobmUjZljfU6nWpi_s2H', // isi jika ingin file dokumen masuk ke folder Drive tertentu
+  WRITE_TOKEN: 'nihaoma-live-7f4c9b2e1a8d6f3c5e9a2b7d1c4f8a6',
   TIMEZONE: 'Asia/Jakarta',
   REFERENCES_SHEET: 'REFERENCES',
   FORM_RESPONSES_SHEET: 'Form Responses 1',
