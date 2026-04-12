@@ -819,9 +819,19 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
                         else:
                             result = api_post("delete_student", {"student_id": delete_id})
                             if result.get("ok"):
-                                st.success(f"Data {delete_id} berhasil dihapus.")
-                                st.session_state.pop("delete_student_id", None)
-                                st.session_state.pop("confirm_delete_text", None)
+                                st.success("PDF styled berhasil dibuat.")
+                                if result.get("kode_invoice"):
+                                    st.write(f"**Kode Invoice:** {safe_text(result.get('kode_invoice'))}")
+                                if result.get("file_name"):
+                                    st.write(f"**File PDF:** {safe_text(result.get('file_name'))}")
+                                if result.get("folder_name"):
+                                    st.write(f"**Folder Drive:** {safe_text(result.get('folder_name'))}")
+                                if result.get("file_url"):
+                                    st.link_button("Buka PDF di Google Drive", result["file_url"], use_container_width=True)
+                                if result.get("folder_url"):
+                                    st.link_button("Buka Folder Invoices", result["folder_url"], use_container_width=True)
+                                if result.get("preview_url"):
+                                    st.link_button("Buka Preview Invoice", result["preview_url"], use_container_width=True)
                                 clear_cache_and_rerun()
                             else:
                                 st.error(result.get("error", "Gagal menghapus data"))
