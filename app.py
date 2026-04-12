@@ -1391,30 +1391,30 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
 
             left, right = st.columns([1, 1])
             with left:
-            st.markdown("### Preview")
-            st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
-            st.download_button(
-                "Download PDF Invoice",
-                data=pdf_bytes,
-                file_name=f"{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-            st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
-            st.info("Untuk hasil paling mirip preview, Anda juga bisa pakai Print > Save as PDF dari halaman preview.")
+                st.markdown("### Preview")
+                st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
+                st.download_button(
+                    "Download PDF Invoice",
+                    data=pdf_bytes,
+                    file_name=f"{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+                st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
+                st.info("Untuk hasil paling mirip preview, Anda juga bisa pakai Print > Save as PDF dari halaman preview.")
 
             with right:
-            st.markdown("### Informasi Invoice")
-            st.write(f"**Kode Invoice saat ini:** {safe_text(invoice.get('kode_invoice'))}")
-            if expected_code:
-                st.write(f"**Format kode yang Anda mau:** {expected_code}")
-            st.write(f"**Jenis Invoice:** {safe_text(invoice.get('invoice_type'))}")
-            st.write(f"**Nama Mahasiswa:** {safe_text(invoice.get('nama_mahasiswa'))}")
-            st.write(f"**Program:** {safe_text(invoice.get('program'))}")
-            st.write(f"**Harga Invoice:** {format_currency(invoice.get('harga_program'))}")
-            st.write(f"**Sudah Dibayar:** {format_currency(invoice.get('sudah_dibayar'))}")
-            st.write(f"**Sisa Tagihan:** {format_currency(invoice.get('sisa_tagihan'))}")
-            st.write(f"**Status Pelunasan:** {safe_text(invoice.get('status_pelunasan'))}")
+                st.markdown("### Informasi Invoice")
+                st.write(f"**Kode Invoice saat ini:** {safe_text(invoice.get('kode_invoice'))}")
+                if expected_code:
+                    st.write(f"**Format kode yang Anda mau:** {expected_code}")
+                st.write(f"**Jenis Invoice:** {safe_text(invoice.get('invoice_type'))}")
+                st.write(f"**Nama Mahasiswa:** {safe_text(invoice.get('nama_mahasiswa'))}")
+                st.write(f"**Program:** {safe_text(invoice.get('program'))}")
+                st.write(f"**Harga Invoice:** {format_currency(invoice.get('harga_program'))}")
+                st.write(f"**Sudah Dibayar:** {format_currency(invoice.get('sudah_dibayar'))}")
+                st.write(f"**Sisa Tagihan:** {format_currency(invoice.get('sisa_tagihan'))}")
+                st.write(f"**Status Pelunasan:** {safe_text(invoice.get('status_pelunasan'))}")
 
 
 # ---------- SOP ----------
