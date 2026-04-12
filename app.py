@@ -78,6 +78,26 @@ def api_post(action: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     resp.raise_for_status()
     return resp.json()
 
+def upload_invoice_pdf_to_drive(
+    invoice_id: str,
+    student_id: str,
+    nama_mahasiswa: str,
+    kode_invoice: str,
+    pdf_bytes: bytes,
+) -> Dict[str, Any]:
+    file_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    return api_post(
+        "upload_invoice_pdf_file",
+        {
+            "invoice_id": invoice_id,
+            "student_id": student_id,
+            "nama_mahasiswa": nama_mahasiswa,
+            "kode_invoice": kode_invoice,
+            "mime_type": "application/pdf",
+            "nama_file": f"{kode_invoice}.pdf",
+            "file_base64": file_base64,
+        },
+    )
 
 @st.cache_data(ttl=60, show_spinner=False)
 def load_bootstrap() -> Dict[str, Any]:
@@ -1404,6 +1424,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
             with left:
                 st.markdown("### Preview")
                 st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
+
                 st.download_button(
                     "Download PDF Invoice",
                     data=pdf_bytes,
@@ -1411,6 +1432,32 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                     mime="application/pdf",
                     use_container_width=True,
                 )
+
+                if st.button("Simpan PDF Bagus ke Google Drive", use_container_width=True):
+                    try:
+                        result = upload_invoice_pdf_to_drive(
+                            invoice_id=safe_text(invoice.get("invoice_id")),
+                            student_id=safe_text(invoice.get("student_id")),
+                            nama_mahasiswa=safe_text(invoice.get("nama_mahasiswa") or student.get("nama_lengkap")),
+                            kode_invoice=safe_text(invoice.get("kode_invoice") or invoice.get("invoice_id")),
+                            pdf_bytes=pdf_bytes,
+                        )
+                    except Exception as exc:
+                        st.error(f"Gagal upload PDF ke Drive: {exc}")
+                    else:
+                        if result.get("ok"):
+                            st.success("PDF bagus berhasil disimpan ke Google Drive.")
+                            if result.get("file_name"):
+                                st.write(f"**File PDF:** {safe_text(result.get('file_name'))}")
+                            if result.get("folder_name"):
+                                st.write(f"**Folder Drive:** {safe_text(result.get('folder_name'))}")
+                            if result.get("file_url"):
+                                st.link_button("Buka PDF di Google Drive", result["file_url"], use_container_width=True)
+                            if result.get("folder_url"):
+                            st.link_button("Buka Folder Invoices", result["folder_url"], use_container_width=True)
+                        else:
+                            st.error(result.get("error", "Gagal menyimpan PDF ke Drive"))
+
                 st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
                 st.info("Untuk hasil paling mirip preview, Anda juga bisa pakai Print > Save as PDF dari halaman preview.")
 
