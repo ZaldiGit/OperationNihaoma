@@ -1,8 +1,9 @@
-
 import base64
+import html
 import io
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 from urllib.parse import urlencode
 
@@ -12,8 +13,11 @@ import requests
 import streamlit as st
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+from reportlab.platypus import Image as RLImage
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 st.set_page_config(page_title="Nihaoma Student Operations", layout="wide")
@@ -28,7 +32,22 @@ SCRIPT_URL = (
 WRITE_TOKEN = st.secrets.get("WRITE_TOKEN", os.getenv("WRITE_TOKEN", ""))
 TIMEOUT = 90
 
+BASE_DIR = Path(__file__).parent
+LOGO_PATH = BASE_DIR / "logo-nihaoma-rounded.png"
+SIGNATURE_PATH = BASE_DIR / "signature-ttd.png"
+STAMP_PATH = BASE_DIR / "stamp-cap.png"
+APPROVAL_PATH = BASE_DIR / "approval-composite.png"
 
+PROFILE_FIXED = {
+    "Nama Brand": "Nihaoma Education Center",
+    "Alamat ID": "Gedung Wirausaha Lantai 1,\nJalan HR Rasuna Said Kav. C-5,\nKelurahan Karet, Kecamatan Setia Budi,\nJakarta Selatan 12920",
+    "Alamat CN": "佛城西路21号楼 1709-C, 江宁区, 南京市, 江苏, China.",
+    "Alamat EN": "Fochengxilu 21 building, room 1709-C, Jiangning District,\nNanjing, Jiangsu, China.",
+    "Email": "admin@nihaoma-education.com",
+    "Telepon / WA": "+62 812-0000-0000",
+    "Info Pembayaran": "Bank BCA - 1234567890 a/n Nihaoma Education Center",
+    "Catatan Footer": "Terima kasih atas kepercayaan Anda. Invoice ini diterbitkan untuk kebutuhan administrasi program pendidikan ke China.",
+}
 # ---------- Core helpers ----------
 def ensure_config() -> None:
     if not SCRIPT_URL or not WRITE_TOKEN:
