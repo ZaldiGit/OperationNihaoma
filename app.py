@@ -1372,25 +1372,25 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                         st.error(result.get("error", "Gagal mencatat pembayaran"))
 
     with tabs[4]:
-    if inv.empty:
-        st.info("Belum ada invoice.")
-    else:
-        invoice_options = [
-            f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
-            for _, row in inv.iterrows()
-        ]
-        selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
-        selected_invoice_id = selected_label.split("|")[0].strip()
-        invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
-        student = find_student(students_df, safe_text(invoice.get("student_id")))
+        if inv.empty:
+            st.info("Belum ada invoice.")
+        else:
+            invoice_options = [
+                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
+                for _, row in inv.iterrows()
+            ]
+            selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
+            selected_invoice_id = selected_label.split("|")[0].strip()
+            invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
+            student = find_student(students_df, safe_text(invoice.get("student_id")))
 
-        preview_url = build_preview_invoice_url(selected_invoice_id)
-        pdf_record = invoice_row_for_pdf(invoice, student)
-        pdf_bytes = generate_invoice_pdf(pdf_record, PROFILE_FIXED)
-        expected_code = expected_invoice_code(invoice.get("tanggal_invoice"), invoice.get("student_id"))
+            preview_url = build_preview_invoice_url(selected_invoice_id)
+            pdf_record = invoice_row_for_pdf(invoice, student)
+            pdf_bytes = generate_invoice_pdf(pdf_record, PROFILE_FIXED)
+            expected_code = expected_invoice_code(invoice.get("tanggal_invoice"), invoice.get("student_id"))
 
-        left, right = st.columns([1, 1])
-        with left:
+            left, right = st.columns([1, 1])
+            with left:
             st.markdown("### Preview")
             st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
             st.download_button(
@@ -1403,7 +1403,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
             st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
             st.info("Untuk hasil paling mirip preview, Anda juga bisa pakai Print > Save as PDF dari halaman preview.")
 
-        with right:
+            with right:
             st.markdown("### Informasi Invoice")
             st.write(f"**Kode Invoice saat ini:** {safe_text(invoice.get('kode_invoice'))}")
             if expected_code:
