@@ -1270,9 +1270,9 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 tanggal_kirim_val = st.date_input("Tanggal Kirim", value=datetime.now().date(), disabled=not kirim_hari_ini, key="package_tanggal_kirim")
                 catatan_invoice = st.text_area(
                     "Catatan Invoice Paket",
-                    value="Invoice paket otomatis: Pendaftaran + Admin",,
-                    key="package_catatan_invoice",
-                )
+                        value="Invoice paket otomatis: Pendaftaran + Admin",,
+                        key="package_catatan_invoice",
+                    )
                 if st.form_submit_button("Buat 2 invoice otomatis"):
                     result = api_post(
                         "create_invoice_package",
