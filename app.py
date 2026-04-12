@@ -1372,65 +1372,49 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                         st.error(result.get("error", "Gagal mencatat pembayaran"))
 
     with tabs[4]:
-        if inv.empty:
-            st.info("Belum ada invoice.")
-        else:
-            invoice_options = [
-                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
-                for _, row in inv.iterrows()
-            ]
-            selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
-            selected_invoice_id = selected_label.split("|")[0].strip()
-            invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
+    if inv.empty:
+        st.info("Belum ada invoice.")
+    else:
+        invoice_options = [
+            f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
+            for _, row in inv.iterrows()
+        ]
+        selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
+        selected_invoice_id = selected_label.split("|")[0].strip()
+        invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
+        student = find_student(students_df, safe_text(invoice.get("student_id")))
 
-            preview_url = build_preview_invoice_url(selected_invoice_id)
+        preview_url = build_preview_invoice_url(selected_invoice_id)
+        pdf_record = invoice_row_for_pdf(invoice, student)
+        pdf_bytes = generate_invoice_pdf(pdf_record, PROFILE_FIXED)
+        expected_code = expected_invoice_code(invoice.get("tanggal_invoice"), invoice.get("student_id"))
 
-            left, right = st.columns([1, 1])
-            with left:
-                st.markdown("### Preview")
-                st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
-                st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
-            with right:
-                st.markdown("### Informasi Invoice")
-                st.write(f"**Kode Invoice:** {safe_text(invoice.get('kode_invoice'))}")
-                st.write(f"**Jenis Invoice:** {safe_text(invoice.get('invoice_type'))}")
-                st.write(f"**Nama Mahasiswa:** {safe_text(invoice.get('nama_mahasiswa'))}")
-                st.write(f"**Program:** {safe_text(invoice.get('program'))}")
-                st.write(f"**Harga Invoice:** {format_currency(invoice.get('harga_program'))}")
-                st.write(f"**Sudah Dibayar:** {format_currency(invoice.get('sudah_dibayar'))}")
-                st.write(f"**Sisa Tagihan:** {format_currency(invoice.get('sisa_tagihan'))}")
-                st.write(f"**Status Pelunasan:** {safe_text(invoice.get('status_pelunasan'))}")
+        left, right = st.columns([1, 1])
+        with left:
+            st.markdown("### Preview")
+            st.link_button("Buka Preview Invoice Styled", preview_url, use_container_width=True)
+            st.download_button(
+                "Download PDF Invoice",
+                data=pdf_bytes,
+                file_name=f"{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+            st.caption("Preview akan membuka template invoice kanan dari Apps Script.")
+            st.info("Untuk hasil paling mirip preview, Anda juga bisa pakai Print > Save as PDF dari halaman preview.")
 
-            st.markdown("### Generate PDF Styled")
-            st.info("Tombol di bawah ini akan memakai template invoice styled dari Apps Script, bukan PDF tabel lama dari Streamlit.")
-
-            if st.button("Generate PDF Styled dari Apps Script", type="primary", use_container_width=True):
-                try:
-                    result = api_post("generate_invoice_pdf", {"invoice_id": selected_invoice_id})
-                except Exception as exc:
-                    st.error(f"Gagal generate PDF styled: {exc}")
-                else:
-                    if result.get("ok"):
-                        st.success("PDF styled berhasil dibuat.")
-                        if result.get("file_name"):
-                            st.write(f"**File:** {safe_text(result.get('file_name'))}")
-                        if result.get("file_url"):
-                            st.link_button("Buka PDF di Google Drive", result["file_url"], use_container_width=True)
-                        if result.get("preview_url"):
-                            st.link_button("Buka Preview Invoice", result["preview_url"], use_container_width=True)
-                        clear_cache_and_rerun()
-                    else:
-                        st.error(result.get("error", "Gagal generate PDF styled"))
-
-            with st.expander("Opsi lama: download PDF lokal dari Streamlit"):
-                student = find_student(students_df, safe_text(invoice.get("student_id")))
-                pdf_bytes = build_invoice_pdf(invoice, student)
-                st.download_button(
-                    "Download PDF Lokal",
-                    data=pdf_bytes,
-                    file_name=f"invoice_{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
-                    mime="application/pdf",
-                )
+        with right:
+            st.markdown("### Informasi Invoice")
+            st.write(f"**Kode Invoice saat ini:** {safe_text(invoice.get('kode_invoice'))}")
+            if expected_code:
+                st.write(f"**Format kode yang Anda mau:** {expected_code}")
+            st.write(f"**Jenis Invoice:** {safe_text(invoice.get('invoice_type'))}")
+            st.write(f"**Nama Mahasiswa:** {safe_text(invoice.get('nama_mahasiswa'))}")
+            st.write(f"**Program:** {safe_text(invoice.get('program'))}")
+            st.write(f"**Harga Invoice:** {format_currency(invoice.get('harga_program'))}")
+            st.write(f"**Sudah Dibayar:** {format_currency(invoice.get('sudah_dibayar'))}")
+            st.write(f"**Sisa Tagihan:** {format_currency(invoice.get('sisa_tagihan'))}")
+            st.write(f"**Status Pelunasan:** {safe_text(invoice.get('status_pelunasan'))}")
 
 
 # ---------- SOP ----------
