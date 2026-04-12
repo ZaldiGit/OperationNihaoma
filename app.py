@@ -1454,7 +1454,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                             if result.get("file_url"):
                                 st.link_button("Buka PDF di Google Drive", result["file_url"], use_container_width=True)
                             if result.get("folder_url"):
-                            st.link_button("Buka Folder Invoices", result["folder_url"], use_container_width=True)
+                                st.link_button("Buka Folder Invoices", result["folder_url"], use_container_width=True)
                         else:
                             st.error(result.get("error", "Gagal menyimpan PDF ke Drive"))
 
