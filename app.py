@@ -300,8 +300,7 @@ def build_invoice_pdf(invoice: Dict[str, Any], student: Dict[str, Any]) -> bytes
     if invoice_type.lower() == "pendaftaran":
         detail_rows.append(["Biaya pendaftaran", format_currency(biaya_pendaftaran or harga)])
     elif invoice_type.lower() == "admin":
-        detail_rows.append(["Biaya admin", format_currency(biaya_admin)])
-        detail_rows.append(["Biaya transport", format_currency(biaya_transport)])
+        detail_rows.append(["Biaya admin", format_currency(biaya_admin or harga)])
         detail_rows.append(["Total invoice admin", format_currency(harga)])
     else:
         detail_rows.append([safe_text(invoice.get("deskripsi_biaya") or "Biaya"), format_currency(harga)])
