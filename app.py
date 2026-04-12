@@ -2,6 +2,7 @@ import base64
 import html
 import io
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List
