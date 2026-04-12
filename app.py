@@ -328,6 +328,325 @@ def build_preview_invoice_url(invoice_id: str) -> str:
     )
     return f"{SCRIPT_URL}?{params}"
 
+def safe_paragraph_text(value) -> str:
+    text = "" if value is None else str(value)
+    return html.escape(text).replace("\n", "<br/>")
+
+
+def format_date_id(value) -> str:
+    if value is None or value == "" or (isinstance(value, float) and pd.isna(value)):
+        return "-"
+    ts = pd.to_datetime(value, errors="coerce", dayfirst=True)
+    if pd.isna(ts):
+        return safe_text(value) or "-"
+    return ts.strftime("%d/%m/%Y")
+
+
+def register_fonts():
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont("STSong-Light"))
+    except Exception:
+        pass
+
+
+def expected_invoice_code(year_value: Any, student_id_value: Any) -> str:
+    year_text = safe_text(year_value)
+    if not year_text:
+        return ""
+    ts = pd.to_datetime(year_text, errors="coerce")
+    year2 = ts.strftime("%y") if not pd.isna(ts) else ""
+    student_text = safe_text(student_id_value)
+    m = re.search(r"(\d+)$", student_text)
+    seq = m.group(1).zfill(2)[-2:] if m else "00"
+    return f"NHEC-{year2}{seq}" if year2 else ""
+
+
+def invoice_row_for_pdf(invoice: Dict[str, Any], student: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "Kode Invoice": safe_text(invoice.get("kode_invoice")),
+        "Tanggal Input": safe_text(invoice.get("tanggal_invoice")),
+        "Nama Student": safe_text(invoice.get("nama_mahasiswa") or student.get("nama_lengkap")),
+        "No. Paspor / ID": safe_text(student.get("no_paspor_atau_nik")),
+        "Email Student": safe_text(student.get("email")),
+        "No. WhatsApp": safe_text(student.get("no_whatsapp")),
+        "Program": safe_text(invoice.get("program") or student.get("program_diminati")),
+        "Harga Program": to_number(invoice.get("harga_program")),
+        "Sudah Dibayar": to_number(invoice.get("sudah_dibayar")),
+        "Sisa Tagihan": to_number(invoice.get("sisa_tagihan")),
+        "Status Pelunasan": safe_text(invoice.get("status_pelunasan")),
+        "Status Pengiriman": safe_text(invoice.get("status_pengiriman")),
+        "Tanggal Kirim": safe_text(invoice.get("tanggal_kirim")),
+        "Intake / Keterangan": safe_text(
+            student.get("intake") or invoice.get("catatan_invoice") or student.get("catatan_admin")
+        ),
+    }
+
+
+def generate_invoice_pdf(record: dict, profile: dict) -> bytes:
+    register_fonts()
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=14 * mm,
+        leftMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=12 * mm,
+    )
+
+    styles = getSampleStyleSheet()
+    brand_name = ParagraphStyle(
+        "BrandName",
+        parent=styles["Title"],
+        fontSize=20,
+        leading=23,
+        textColor=colors.HexColor("#1F2937"),
+    )
+    invoice_title = ParagraphStyle(
+        "InvoiceTitle",
+        parent=styles["Title"],
+        fontSize=23,
+        leading=26,
+        textColor=colors.HexColor("#D97706"),
+        alignment=1,
+    )
+    body = ParagraphStyle(
+        "Body",
+        parent=styles["BodyText"],
+        fontSize=9.2,
+        leading=12,
+        textColor=colors.HexColor("#1F2937"),
+    )
+    chinese = ParagraphStyle("Chinese", parent=body, fontName="STSong-Light")
+    label = ParagraphStyle("Label", parent=body, fontSize=9, leading=12)
+    value = ParagraphStyle("Value", parent=body, fontSize=9.4, leading=12)
+
+    BLUE = colors.HexColor("#1E88E5")
+    BLUE_DARK = colors.HexColor("#0F4C81")
+    ORANGE = colors.HexColor("#F59E0B")
+    ORANGE_DARK = colors.HexColor("#D97706")
+    LIGHT_ORANGE = colors.HexColor("#FFF6E8")
+
+    story = []
+
+    accent = Table([["", "", ""]], colWidths=[112 * mm, 40 * mm, 28 * mm], rowHeights=[4 * mm])
+    accent.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, 0), BLUE_DARK),
+                ("BACKGROUND", (1, 0), (1, 0), BLUE),
+                ("BACKGROUND", (2, 0), (2, 0), ORANGE),
+            ]
+        )
+    )
+    story.append(accent)
+    story.append(Spacer(1, 6))
+
+    logo_flowable = RLImage(str(LOGO_PATH), width=28 * mm, height=28 * mm) if LOGO_PATH.exists() else Paragraph("", body)
+
+    identity_table = Table(
+        [
+            [logo_flowable, Paragraph(f"<b>{safe_paragraph_text(profile['Nama Brand'])}</b>", brand_name)],
+            ["", Paragraph(safe_paragraph_text(profile["Alamat ID"]), body)],
+            ["", Paragraph(safe_paragraph_text(profile["Alamat CN"]), chinese)],
+            ["", Paragraph(safe_paragraph_text(profile["Alamat EN"]), body)],
+            ["", Paragraph(f"Email: {safe_paragraph_text(profile['Email'])}<br/>WhatsApp: {safe_paragraph_text(profile['Telepon / WA'])}", body)],
+        ],
+        colWidths=[32 * mm, 78 * mm],
+    )
+    identity_table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("VALIGN", (0, 0), (0, 0), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("SPAN", (0, 1), (0, 4)),
+            ]
+        )
+    )
+
+    invoice_card = Table(
+        [
+            [Paragraph("INVOICE", invoice_title)],
+            [Paragraph(f"<b>Kode</b>: {safe_paragraph_text(record.get('Kode Invoice', '-'))}", body)],
+            [Paragraph(f"<b>Tanggal</b>: {format_date_id(record.get('Tanggal Input'))}", body)],
+            [Paragraph(f"<b>Status</b>: {safe_paragraph_text(record.get('Status Pelunasan', '-'))}", body)],
+        ],
+        colWidths=[64 * mm],
+    )
+    invoice_card.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), LIGHT_ORANGE),
+                ("BOX", (0, 0), (-1, -1), 0.9, ORANGE),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
+
+    top = Table([[identity_table, invoice_card]], colWidths=[112 * mm, 66 * mm])
+    top.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
+    story.append(top)
+    story.append(Spacer(1, 8))
+
+    def section_title(text, color):
+        return Table(
+            [[Paragraph(f"<font color='white'><b>{safe_paragraph_text(text)}</b></font>", styles["BodyText"])]],
+            colWidths=[178 * mm],
+            rowHeights=[8 * mm],
+            style=TableStyle([("BACKGROUND", (0, 0), (-1, -1), color), ("LEFTPADDING", (0, 0), (-1, -1), 8)]),
+        )
+
+    story.append(section_title("Student & Invoice Details", BLUE))
+    detail_rows = [
+        [Paragraph("<b>Nama Student</b>", label), Paragraph(safe_paragraph_text(record.get("Nama Student", "-")), value), Paragraph("<b>Program</b>", label), Paragraph(safe_paragraph_text(record.get("Program", "-")), value)],
+        [Paragraph("<b>Passport / ID</b>", label), Paragraph(safe_paragraph_text(record.get("No. Paspor / ID", "-")), value), Paragraph("<b>Status Pelunasan</b>", label), Paragraph(safe_paragraph_text(record.get("Status Pelunasan", "-")), value)],
+        [Paragraph("<b>Email</b>", label), Paragraph(safe_paragraph_text(record.get("Email Student", "-")), value), Paragraph("<b>Status Pengiriman</b>", label), Paragraph(safe_paragraph_text(record.get("Status Pengiriman", "-")), value)],
+        [Paragraph("<b>WhatsApp</b>", label), Paragraph(safe_paragraph_text(record.get("No. WhatsApp", "-")), value), Paragraph("<b>Tanggal Invoice</b>", label), Paragraph(format_date_id(record.get("Tanggal Input")), value)],
+        [Paragraph("<b>Intake / Catatan</b>", label), Paragraph(safe_paragraph_text(record.get("Intake / Keterangan", "-") or "-"), value), Paragraph("<b>Kode Invoice</b>", label), Paragraph(safe_paragraph_text(record.get("Kode Invoice", "-")), value)],
+    ]
+    detail_table = Table(detail_rows, colWidths=[30 * mm, 58 * mm, 33 * mm, 57 * mm])
+    detail_table.setStyle(
+        TableStyle(
+            [
+                ("ROWBACKGROUNDS", (0, 0), (-1, -1), [colors.white, colors.HexColor("#EEF6FF")]),
+                ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#D6DCE5")),
+                ("BOX", (0, 0), (-1, -1), 0.9, BLUE),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    story.append(detail_table)
+    story.append(Spacer(1, 8))
+
+    story.append(section_title("Program Charge", ORANGE))
+    charge_rows = [
+        [Paragraph("<font color='white'><b>No</b></font>", label), Paragraph("<font color='white'><b>Deskripsi Program</b></font>", label), Paragraph("<font color='white'><b>Mata Uang</b></font>", label), Paragraph("<font color='white'><b>Total</b></font>", label)],
+        [Paragraph("1", value), Paragraph(safe_paragraph_text(f"Biaya program {record.get('Program', '-')}" + ("\nKeterangan: " + str(record.get('Intake / Keterangan', '-') or '-'))), value), Paragraph("IDR", value), Paragraph(format_currency(record.get("Harga Program", 0)), value)],
+    ]
+    charge_table = Table(charge_rows, colWidths=[14 * mm, 110 * mm, 18 * mm, 36 * mm])
+    charge_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), ORANGE),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FFF6E8")),
+                ("GRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#D6DCE5")),
+                ("BOX", (0, 0), (-1, -1), 0.9, ORANGE_DARK),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    story.append(charge_table)
+    story.append(Spacer(1, 8))
+
+    story.append(section_title("Pembayaran & Ringkasan", colors.HexColor("#0F4C81")))
+    summary_text = (
+        f"<b>Total Program</b>: {format_currency(record.get('Harga Program', 0))}<br/>"
+        f"<b>Sudah Dibayar</b>: {format_currency(record.get('Sudah Dibayar', 0))}<br/>"
+        f"<b>Sisa Tagihan</b>: {format_currency(record.get('Sisa Tagihan', 0))}"
+    )
+    payment_table = Table(
+        [[Paragraph(safe_paragraph_text(profile.get("Info Pembayaran", "-")), value), Paragraph(summary_text, value)]],
+        colWidths=[112 * mm, 66 * mm],
+    )
+    payment_table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#EEF6FF")),
+                ("BACKGROUND", (1, 0), (1, 0), colors.HexColor("#FFF6E8")),
+                ("BOX", (0, 0), (-1, -1), 0.9, colors.HexColor("#0F4C81")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.45, colors.HexColor("#D6DCE5")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ]
+        )
+    )
+    story.append(payment_table)
+    story.append(Spacer(1, 8))
+
+    signature_title = ParagraphStyle("SignatureTitle", parent=body, fontSize=8.8, leading=11, textColor=colors.HexColor("#6B7280"))
+    signature_name = ParagraphStyle("SignatureName", parent=body, fontSize=10, leading=12, textColor=colors.HexColor("#1F2937"), alignment=1)
+    signature_role = ParagraphStyle("SignatureRole", parent=body, fontSize=9, leading=11, textColor=colors.HexColor("#6B7280"), alignment=1)
+
+    footer_note = Table([[Paragraph(safe_paragraph_text(profile.get("Catatan Footer", "")), body)]], colWidths=[118 * mm])
+    footer_note.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FFF7E6")),
+                ("BOX", (0, 0), (-1, -1), 0.9, colors.HexColor("#F59E0B")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 8),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+
+    approval_img = RLImage(str(APPROVAL_PATH), width=56 * mm, height=20 * mm) if APPROVAL_PATH.exists() else Paragraph("", body)
+    approval_block = Table(
+        [
+            [Paragraph("<b>Authorized Signature</b>", signature_title)],
+            [approval_img],
+            [Paragraph("<b>Yenny Pricila</b>", signature_name)],
+            [Paragraph("Management", signature_role)],
+        ],
+        colWidths=[60 * mm],
+    )
+    approval_block.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.white),
+                ("LINEABOVE", (0, 0), (-1, 0), 0.4, colors.HexColor("#D6DCE5")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                ("ALIGN", (0, 1), (0, 1), "CENTER"),
+            ]
+        )
+    )
+
+    footer_combo = Table([[footer_note, approval_block]], colWidths=[118 * mm, 60 * mm])
+    footer_combo.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
+    story.append(footer_combo)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.read()
 
 # ---------- Dashboard ----------
 def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payments_df: pd.DataFrame) -> None:
