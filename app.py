@@ -202,20 +202,22 @@ def calculate_invoice_package(student: Dict[str, Any]) -> Dict[str, Any]:
     program = safe_text(student.get("program_diminati"))
     base_program_fee = to_number(student.get("estimasi_biaya"))
     registration_fee = get_registration_fee(program)
-    transport_fee = get_transport_fee()
+
+    # Transport sudah dianggap termasuk di estimasi_biaya,
+    # jadi TIDAK ditambahkan lagi ke invoice admin.
     admin_core_fee = max(base_program_fee - registration_fee, 0.0)
-    admin_invoice_total = admin_core_fee + transport_fee
-    grand_total = registration_fee + admin_invoice_total
+    admin_invoice_total = admin_core_fee
+    grand_total = base_program_fee
+
     return {
         "program": program,
         "base_program_fee": base_program_fee,
         "registration_fee": registration_fee,
         "admin_core_fee": admin_core_fee,
-        "transport_fee": transport_fee,
+        "transport_fee": 0.0,
         "admin_invoice_total": admin_invoice_total,
         "grand_total": grand_total,
     }
-
 
 def group_student_finance(invoices_df: pd.DataFrame) -> pd.DataFrame:
     if invoices_df.empty:
@@ -1250,10 +1252,13 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
 
             info1, info2, info3 = st.columns(3)
             info1.metric("Biaya pendaftaran", format_currency(package["registration_fee"]))
-            info2.metric("Biaya admin", format_currency(package["admin_core_fee"]))
-            info3.metric("Biaya transport", format_currency(package["transport_fee"]))
+            info2.metric("Biaya admin", format_currency(package["admin_invoice_total"]))
+            info3.metric("Total kewajiban", format_currency(package["grand_total"]))
+
             st.info(
-                f"Total invoice admin yang akan dibuat: {format_currency(package['admin_invoice_total'])}. "
+                f"Invoice akan di-split menjadi: "
+                f"Pendaftaran {format_currency(package['registration_fee'])} "
+                f"+ Admin {format_currency(package['admin_invoice_total'])}. "
                 f"Total keseluruhan kewajiban mahasiswa: {format_currency(package['grand_total'])}."
             )
 
@@ -1266,7 +1271,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 tanggal_kirim_val = st.date_input("Tanggal Kirim", value=datetime.now().date(), disabled=not kirim_hari_ini, key="package_tanggal_kirim")
                 catatan_invoice = st.text_area(
                     "Catatan Invoice Paket",
-                    value="Invoice paket otomatis: Pendaftaran + Admin/Transport",
+                    value="Invoice paket otomatis: Pendaftaran + Admin",,
                     key="package_catatan_invoice",
                 )
                 if st.form_submit_button("Buat 2 invoice otomatis"):
