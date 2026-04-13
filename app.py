@@ -1754,22 +1754,22 @@ def main() -> None:
         st.session_state["sidebar_page"] = st.session_state.pop("pending_page")
 
     with st.sidebar:
-    if LOGO_PATH.exists():
-        st.image(str(LOGO_PATH), width=120)
+        if LOGO_PATH.exists():
+            st.image(str(LOGO_PATH), width=120)
 
-    st.markdown("## Nihaoma")
-    st.caption("Education Center")
+        st.markdown("## Nihaoma")
+        st.caption("Education Center")
 
-    page = st.radio(
-        "Pilih Menu",
-        PAGES,
-        key="sidebar_page",
-    )
+        page = st.radio(
+            "Pilih Menu",
+            PAGES,
+            key="sidebar_page",
+        )
 
-    if st.button("Refresh data", use_container_width=True):
-        clear_cache_and_rerun()
+        if st.button("Refresh data", use_container_width=True):
+            clear_cache_and_rerun()
 
-    st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
+        st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
 
 
     if page == "Dashboard":
