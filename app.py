@@ -109,6 +109,17 @@ def inject_ui_style() -> None:
             margin: 10px 0 16px 0;
         }
 
+        .notification-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: 0 6px 14px rgba(249, 115, 22, 0.18);
+        }
+
         div[data-testid="stMetric"] {
             background: rgba(255,255,255,0.95) !important;
             border: 1px solid rgba(217, 119, 6, 0.10);
@@ -230,6 +241,33 @@ def clear_cache_and_rerun() -> None:
 def go_to_page(page_name: str) -> None:
     st.session_state["pending_page"] = page_name
     st.rerun()
+
+def detect_new_students(students_df: pd.DataFrame) -> List[Dict[str, Any]]:
+    if students_df.empty or "student_id" not in students_df.columns:
+        return []
+
+    current_rows = []
+    for _, row in students_df.iterrows():
+        current_rows.append({
+            "student_id": safe_text(row.get("student_id")),
+            "nama_lengkap": safe_text(row.get("nama_lengkap")),
+            "program_diminati": safe_text(row.get("program_diminati")),
+            "tanggal_input": safe_text(row.get("tanggal_input")),
+        })
+
+    current_ids = {row["student_id"] for row in current_rows if row["student_id"]}
+
+    if "seen_student_ids" not in st.session_state:
+        st.session_state["seen_student_ids"] = current_ids
+        st.session_state["latest_new_students"] = []
+        return []
+
+    seen_ids = set(st.session_state.get("seen_student_ids", set()))
+    new_students = [row for row in current_rows if row["student_id"] and row["student_id"] not in seen_ids]
+
+    st.session_state["seen_student_ids"] = current_ids
+    st.session_state["latest_new_students"] = new_students
+    return new_students
 
 
 # ---------- Formatting helpers ----------
@@ -931,6 +969,21 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
     c3.metric("Nilai Invoice", format_currency(total_nilai_invoice))
     c4.metric("Sudah Dibayar", format_currency(total_dibayar))
     c5.metric("Outstanding", format_currency(total_outstanding))
+
+    latest_new_students = st.session_state.get("latest_new_students", [])
+
+    if latest_new_students:
+        st.markdown("""
+        <div class="soft-card">
+            <div class="section-title">Notifikasi Mahasiswa Baru</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        for item in latest_new_students[:5]:
+            st.success(
+                f"{item['nama_lengkap']} ({item['student_id']})"
+                + (f" • {item['program_diminati']}" if item["program_diminati"] else "")
+            )
 
     st.markdown("## Akses Cepat")
 
@@ -1859,6 +1912,14 @@ def main() -> None:
     payments_df = normalize_df(as_df(data.get("payments", [])))
     refs = data.get("references", {}) or {}
 
+    new_students = detect_new_students(students_df)
+
+    if new_students:
+        if len(new_students) == 1:
+            st.toast(f"Mahasiswa baru masuk: {new_students[0]['nama_lengkap']}")
+        else:
+            st.toast(f"Ada {len(new_students)} calon mahasiswa baru masuk")
+
     if "sidebar_page" not in st.session_state:
         st.session_state["sidebar_page"] = "Dashboard"
 
@@ -1891,6 +1952,13 @@ def main() -> None:
 
         if st.button("Refresh data", use_container_width=True):
             clear_cache_and_rerun()
+
+        latest_new_students = st.session_state.get("latest_new_students", [])
+
+        if latest_new_students:
+            st.markdown(f"### Notifikasi ({len(latest_new_students)})")
+            for item in latest_new_students[:5]:
+                st.caption(f"• {item['nama_lengkap']} ({item['student_id']})")
 
         st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
 
