@@ -71,6 +71,20 @@ def inject_ui_style() -> None:
             color: white !important;
         }
 
+        section[data-testid="stSidebar"] img {
+            border-radius: 18px;
+            margin-bottom: 12px;
+        }
+
+        .sidebar-hero-caption {
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+            margin-top: -4px;
+            margin-bottom: 10px;
+        }
+
         .hero-box {
             background: linear-gradient(135deg, #ffe0a3 0%, #f59e0b 100%);
             border-radius: 28px;
@@ -940,7 +954,8 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
 
     with top_right:
         if HERO_STUDENT_PATH.exists():
-            st.image(str(HERO_STUDENT_PATH), width=350)
+            st.image(str(HERO_STUDENT_PATH), width=220)
+            st.markdown('<div class="sidebar-hero-caption">Welcome to Nihaoma</div>', unsafe_allow_html=True)
     active_students = students_df.copy()
     if not active_students.empty and "is_active" in active_students.columns:
         active_students = active_students[
@@ -1949,6 +1964,9 @@ def main() -> None:
             PAGES,
             key="sidebar_page",
         )
+
+        if HERO_STUDENT_PATH.exists():
+            st.image(str(HERO_STUDENT_PATH), width=220)
 
         if st.button("Refresh data", use_container_width=True):
             clear_cache_and_rerun()
