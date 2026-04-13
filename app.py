@@ -53,6 +53,18 @@ PROFILE_FIXED = {
 def inject_ui_style() -> None:
     st.markdown("""
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+        html, body, [class*="css"], .stApp, .stMarkdown, .stText, .stCaption,
+        div[data-testid="stMetric"], div[data-testid="stButton"] > button,
+        div[data-testid="stSidebar"], input, textarea, select, label {
+            font-family: 'Poppins', sans-serif !important;
+        }
+
+        h1, h2, h3, h4, h5, h6,
+        .hero-title, .hero-subtitle, .section-title {
+            font-family: 'Poppins', sans-serif !important;
+        }
         .stApp {
             background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 55%, #ffedd5 100%) !important;
         }
