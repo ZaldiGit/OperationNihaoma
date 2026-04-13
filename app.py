@@ -146,8 +146,9 @@ def inject_ui_style() -> None:
             border-radius: 18px;
             border: 1px solid rgba(217, 119, 6, 0.14);
             background: white !important;
-            min-height: 54px;
+            min-height: 58px;
             font-weight: 700;
+            font-size: 18px;
             box-shadow: 0 6px 16px rgba(0,0,0,0.04);
         }
 
@@ -1001,27 +1002,27 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
     q1, q2, q3, q4 = st.columns(4)
 
     with q1:
-        st.markdown("### Calon Mahasiswa")
+        st.markdown("### 🎓Calon Mahasiswa")
         st.caption("Kelola data student")
-        if st.button("Buka Calon Mahasiswa", key="quick_students", use_container_width=True):
+        if st.button("🎓 Buka Calon Mahasiswa", key="quick_students", use_container_width=True):
             go_to_page("Calon Mahasiswa")
 
     with q2:
-        st.markdown("### Dokumen")
+        st.markdown("### 📄 Dokumen")
         st.caption("Upload & verifikasi")
-        if st.button("Buka Dokumen", key="quick_documents", use_container_width=True):
+        if st.button(" 📄 Buka Dokumen", key="quick_documents", use_container_width=True):
             go_to_page("Dokumen")
 
     with q3:
-        st.markdown("### Invoice")
+        st.markdown("### 🧾 Invoice")
         st.caption("Buat dan monitor invoice")
-        if st.button("Buka Invoice", key="quick_invoice", use_container_width=True):
+        if st.button("🧾 Buka Invoice", key="quick_invoice", use_container_width=True):
             go_to_page("Invoice & Pembayaran")
 
     with q4:
-        st.markdown("### Pembayaran")
+        st.markdown("### 💳 Pembayaran")
         st.caption("Catat payment masuk")
-        if st.button("Buka Pembayaran", key="quick_payment", use_container_width=True):
+        if st.button("💳 Buka Pembayaran", key="quick_payment", use_container_width=True):
             go_to_page("Invoice & Pembayaran")
 
     left, right = st.columns(2)
