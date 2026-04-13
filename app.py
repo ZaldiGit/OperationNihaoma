@@ -54,16 +54,17 @@ def inject_ui_style() -> None:
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(180deg, #fffaf3 0%, #fff3e3 100%);
+            background: linear-gradient(180deg, #fffdf9 0%, #fff7ed 55%, #ffedd5 100%) !important;
         }
 
-        .block-container {
-            padding-top: 1.4rem;
+        .main .block-container {
+            background: transparent !important;
+            padding-top: 1.2rem;
             padding-bottom: 2rem;
         }
 
         section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #a84f16 0%, #d97706 100%);
+            background: linear-gradient(180deg, #b45309 0%, #f59e0b 100%) !important;
         }
 
         section[data-testid="stSidebar"] * {
@@ -71,11 +72,11 @@ def inject_ui_style() -> None:
         }
 
         .hero-box {
-            background: linear-gradient(135deg, #ffd58a 0%, #f59e0b 100%);
-            border-radius: 24px;
+            background: linear-gradient(135deg, #ffe0a3 0%, #f59e0b 100%);
+            border-radius: 28px;
             padding: 30px 34px;
             margin-bottom: 22px;
-            box-shadow: 0 10px 28px rgba(245, 158, 11, 0.16);
+            box-shadow: 0 12px 28px rgba(245, 158, 11, 0.18);
         }
 
         .hero-title {
@@ -93,46 +94,33 @@ def inject_ui_style() -> None:
         }
 
         .soft-card {
-            background: rgba(255,255,255,0.92);
-            border-radius: 20px;
+            background: rgba(255,255,255,0.94);
+            border-radius: 22px;
             padding: 18px 20px;
-            box-shadow: 0 8px 22px rgba(0,0,0,0.05);
-            border: 1px solid rgba(217, 119, 6, 0.12);
+            box-shadow: 0 10px 24px rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(217, 119, 6, 0.10);
             margin-bottom: 14px;
         }
 
         .section-title {
             font-size: 24px;
             font-weight: 700;
-            color: #a84f16;
+            color: #b45309;
             margin: 10px 0 16px 0;
         }
 
-        .quick-card-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #2f3640;
-            margin-bottom: 6px;
-        }
-
-        .quick-card-desc {
-            font-size: 14px;
-            color: #66776f;
-            margin-bottom: 10px;
-        }
-
         div[data-testid="stMetric"] {
-            background: rgba(255,255,255,0.92);
-            border: 1px solid rgba(217, 119, 6, 0.12);
+            background: rgba(255,255,255,0.95) !important;
+            border: 1px solid rgba(217, 119, 6, 0.10);
             border-radius: 18px;
             padding: 12px;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.04);
         }
 
         div[data-testid="stButton"] > button {
             border-radius: 18px;
             border: 1px solid rgba(217, 119, 6, 0.14);
-            background: white;
+            background: white !important;
             min-height: 54px;
             font-weight: 700;
             box-shadow: 0 6px 16px rgba(0,0,0,0.04);
@@ -144,34 +132,25 @@ def inject_ui_style() -> None:
         }
 
         div[data-testid="stPlotlyChart"] {
-            background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,248,240,0.94) 100%);
-            border: 1px solid rgba(217, 119, 6, 0.12);
+            background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,248,240,0.98) 100%);
+            border: 1px solid rgba(217, 119, 6, 0.10);
             border-radius: 22px;
             padding: 12px;
-            box-shadow: 0 10px 24px rgba(0,0,0,0.05);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.04);
             margin-bottom: 12px;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .stApp {
-                background: linear-gradient(180deg, #1f1b16 0%, #2b241d 100%);
-            }
+        div[data-baseweb="select"] > div,
+        .stTextInput input,
+        .stTextArea textarea,
+        .stDateInput input,
+        .stNumberInput input {
+            background: rgba(255,255,255,0.96) !important;
+        }
 
-            .soft-card,
-            div[data-testid="stMetric"],
-            div[data-testid="stPlotlyChart"] {
-                background: rgba(30, 24, 20, 0.92) !important;
-                border: 1px solid rgba(251, 146, 60, 0.18) !important;
-            }
-
-            .section-title,
-            .quick-card-title {
-                color: #fdba74 !important;
-            }
-
-            .quick-card-desc {
-                color: #f3e2d0 !important;
-            }
+        [data-testid="stDataFrame"] {
+            background: rgba(255,255,255,0.96) !important;
+            border-radius: 18px;
         }
     </style>
     """, unsafe_allow_html=True)
