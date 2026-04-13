@@ -784,7 +784,7 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
 
     with top_right:
         if HERO_STUDENT_PATH.exists():
-            st.image(str(HERO_STUDENT_PATH), width=280)
+            st.image(str(HERO_STUDENT_PATH), width=350)
     active_students = students_df.copy()
     if not active_students.empty and "is_active" in active_students.columns:
         active_students = active_students[
