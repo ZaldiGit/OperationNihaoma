@@ -1720,7 +1720,7 @@ def main() -> None:
     refs = data.get("references", {}) or {}
 
     if "page" not in st.session_state:
-    st.session_state["page"] = "Dashboard"
+        st.session_state["page"] = "Dashboard"
 
     with st.sidebar:
         st.markdown("### Menu")
