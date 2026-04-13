@@ -132,12 +132,13 @@ def inject_ui_style() -> None:
         }
 
         div[data-testid="stPlotlyChart"] {
-            background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(255,248,240,0.98) 100%);
+            background: linear-gradient(180deg, rgba(255,255,255,0.94) 0%, rgba(255,248,240,0.99) 100%);
             border: 1px solid rgba(217, 119, 6, 0.10);
             border-radius: 22px;
-            padding: 12px;
+            padding: 14px 14px 8px 14px;
             box-shadow: 0 10px 24px rgba(0,0,0,0.04);
             margin-bottom: 12px;
+            overflow: visible !important;
         }
 
         div[data-baseweb="select"] > div,
@@ -789,6 +790,100 @@ def generate_invoice_pdf(record: dict, profile: dict) -> bytes:
     buffer.seek(0)
     return buffer.read()
 
+ORANGE_COLORS = ["#C2410C", "#EA580C", "#F97316", "#FB923C", "#FDBA74", "#FED7AA"]
+
+def get_chart_theme() -> dict:
+    base = str(st.get_option("theme.base") or "light").lower()
+    dark = base == "dark"
+    return {
+        "font": "#F8FAFC" if dark else "#4B5563",
+        "grid": "rgba(255,255,255,0.10)" if dark else "rgba(180, 83, 9, 0.10)",
+        "line": "rgba(255,255,255,0.18)" if dark else "rgba(180, 83, 9, 0.18)",
+        "paper": "rgba(0,0,0,0)",
+        "plot": "rgba(0,0,0,0)",
+        "legend_bg": "rgba(255,255,255,0)" if not dark else "rgba(0,0,0,0)",
+    }
+
+def style_pie_chart(fig, title: str, hole: float = 0.42):
+    theme = get_chart_theme()
+
+    fig.update_traces(
+        hole=hole,
+        textinfo="percent",
+        textfont_size=14,
+        marker=dict(
+            line=dict(color="rgba(255,255,255,0.85)", width=2)
+        ),
+        hovertemplate="<b>%{label}</b><br>Jumlah: %{value}<br>Persen: %{percent}<extra></extra>",
+        pull=[0.02] * len(fig.data[0]["labels"]) if fig.data else None,
+    )
+
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.02,
+            xanchor="left",
+            font=dict(size=20, color=theme["font"]),
+        ),
+        font=dict(color=theme["font"], size=13),
+        paper_bgcolor=theme["paper"],
+        plot_bgcolor=theme["plot"],
+        legend=dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.12,
+            xanchor="left",
+            x=0,
+            font=dict(size=12, color=theme["font"]),
+            bgcolor=theme["legend_bg"],
+        ),
+        margin=dict(l=20, r=20, t=60, b=95),
+        height=430,
+    )
+    return fig
+
+def style_bar_chart(fig, title: str):
+    theme = get_chart_theme()
+
+    fig.update_traces(
+        marker_line_color=theme["line"],
+        marker_line_width=1.2,
+        opacity=0.92,
+        texttemplate="%{y:,.0f}",
+        textposition="outside",
+        hovertemplate="<b>%{x}</b><br>Nilai: %{y:,.0f}<extra></extra>",
+    )
+
+    fig.update_layout(
+        title=dict(
+            text=title,
+            x=0.02,
+            xanchor="left",
+            font=dict(size=20, color=theme["font"]),
+        ),
+        font=dict(color=theme["font"], size=13),
+        paper_bgcolor=theme["paper"],
+        plot_bgcolor=theme["plot"],
+        coloraxis_showscale=False,
+        margin=dict(l=20, r=20, t=60, b=70),
+        height=430,
+        xaxis=dict(
+            title="",
+            showgrid=False,
+            linecolor=theme["line"],
+            tickfont=dict(color=theme["font"]),
+        ),
+        yaxis=dict(
+            title="",
+            showgrid=True,
+            gridcolor=theme["grid"],
+            zeroline=False,
+            linecolor=theme["line"],
+            tickfont=dict(color=theme["font"]),
+        ),
+    )
+    return fig
+
 # ---------- Dashboard ----------
 def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payments_df: pd.DataFrame) -> None:
     st.subheader("Dashboard")
@@ -881,8 +976,14 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
                 .reset_index(name="jumlah")
                 .sort_values("jumlah", ascending=False)
             )
-            fig_status = px.pie(status_df, names="status_proses", values="jumlah", hole=0.35)
-            st.plotly_chart(fig_status, use_container_width=True)
+            fig_status = px.pie(
+                status_df,
+                names="status_proses",
+                values="jumlah",
+                color_discrete_sequence=ORANGE_COLORS,
+            )
+            fig_status = style_pie_chart(fig_status, "Distribusi Status Proses", hole=0.48)
+            st.plotly_chart(fig_status, use_container_width=True, config={"displayModeBar": False})
 
     with right:
         st.markdown("**Distribusi PIC**")
@@ -896,8 +997,14 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
                 .reset_index(name="jumlah")
                 .sort_values("jumlah", ascending=False)
             )
-            fig_pic = px.pie(pic_df, names="pic_admin", values="jumlah")
-            st.plotly_chart(fig_pic, use_container_width=True)
+            fig_pic = px.pie(
+                pic_df,
+                names="pic_admin",
+                values="jumlah",
+                color_discrete_sequence=["#FDBA74", "#F97316", "#C2410C", "#FED7AA"],
+            )
+            fig_pic = style_pie_chart(fig_pic, "Distribusi PIC", hole=0.46)
+            st.plotly_chart(fig_pic, use_container_width=True, config={"displayModeBar": False})
 
     lower_left, lower_right = st.columns(2)
     with lower_left:
@@ -911,8 +1018,14 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
                 .size()
                 .reset_index(name="jumlah")
             )
-            fig_pelunasan = px.pie(pelunasan, names="status_pelunasan", values="jumlah")
-            st.plotly_chart(fig_pelunasan, use_container_width=True)
+            fig_pelunasan = px.pie(
+                pelunasan,
+                names="status_pelunasan",
+                values="jumlah",
+                color_discrete_sequence=["#C2410C", "#F97316", "#FDBA74", "#FED7AA"],
+            )
+            fig_pelunasan = style_pie_chart(fig_pelunasan, "Invoice berdasarkan Status Pelunasan", hole=0.42)
+            st.plotly_chart(fig_pelunasan, use_container_width=True, config={"displayModeBar": False})
 
     with lower_right:
         st.markdown("**Outstanding per Program**")
@@ -925,8 +1038,20 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
                 .reset_index()
                 .sort_values("sisa_tagihan", ascending=False)
             )
-            fig_outstanding = px.bar(outstanding_df, x="program", y="sisa_tagihan")
-            st.plotly_chart(fig_outstanding, use_container_width=True)
+            fig_outstanding = px.bar(
+                outstanding_df,
+                x="program",
+                y="sisa_tagihan",
+                color="sisa_tagihan",
+                color_continuous_scale=[
+                    [0.00, "#FED7AA"],
+                    [0.35, "#FDBA74"],
+                    [0.70, "#F97316"],
+                    [1.00, "#C2410C"],
+                ],
+            )
+            fig_outstanding = style_bar_chart(fig_outstanding, "Outstanding per Program")
+            st.plotly_chart(fig_outstanding, use_container_width=True, config={"displayModeBar": False})
 
 
 # ---------- Students ----------
@@ -1365,11 +1490,30 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
             ch1, ch2 = st.columns(2)
             with ch1:
                 pel = inv.groupby("status_pelunasan", dropna=False).size().reset_index(name="jumlah")
-                st.plotly_chart(px.pie(pel, names="status_pelunasan", values="jumlah", title="Status Pelunasan"), use_container_width=True)
+                fig_invoice_status = px.pie(
+                    pel,
+                    names="status_pelunasan",
+                    values="jumlah",
+                    color_discrete_sequence=["#C2410C", "#F97316", "#FDBA74", "#FED7AA"],
+                )
+                fig_invoice_status = style_pie_chart(fig_invoice_status, "Status Pelunasan", hole=0.44)
+                st.plotly_chart(fig_invoice_status, use_container_width=True, config={"displayModeBar": False})
             with ch2:
                 typ = inv.groupby("invoice_type", dropna=False)["sisa_tagihan"].sum().reset_index()
-                st.plotly_chart(px.bar(typ, x="invoice_type", y="sisa_tagihan", title="Outstanding per Jenis Invoice"), use_container_width=True)
-
+                fig_invoice_type = px.bar(
+                    typ,
+                    x="invoice_type",
+                    y="sisa_tagihan",
+                    color="sisa_tagihan",
+                    color_continuous_scale=[
+                        [0.00, "#FED7AA"],
+                        [0.35, "#FDBA74"],
+                        [0.70, "#F97316"],
+                        [1.00, "#C2410C"],
+                    ],
+                )
+                fig_invoice_type = style_bar_chart(fig_invoice_type, "Outstanding per Jenis Invoice")
+                st.plotly_chart(fig_invoice_type, use_container_width=True, config={"displayModeBar": False})
             st.markdown("### Ringkasan keuangan per mahasiswa")
             finance_df = group_student_finance(inv)
             show_finance = finance_df.copy()
