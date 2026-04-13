@@ -57,6 +57,11 @@ def inject_ui_style() -> None:
             background: linear-gradient(180deg, #fffaf3 0%, #fff3e3 100%);
         }
 
+        .block-container {
+            padding-top: 1.4rem;
+            padding-bottom: 2rem;
+        }
+
         section[data-testid="stSidebar"] {
             background: linear-gradient(180deg, #a84f16 0%, #d97706 100%);
         }
@@ -70,7 +75,7 @@ def inject_ui_style() -> None:
             border-radius: 24px;
             padding: 30px 34px;
             margin-bottom: 22px;
-            box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+            box-shadow: 0 10px 28px rgba(245, 158, 11, 0.16);
         }
 
         .hero-title {
@@ -88,7 +93,7 @@ def inject_ui_style() -> None:
         }
 
         .soft-card {
-            background: white;
+            background: rgba(255,255,255,0.92);
             border-radius: 20px;
             padding: 18px 20px;
             box-shadow: 0 8px 22px rgba(0,0,0,0.05);
@@ -103,35 +108,70 @@ def inject_ui_style() -> None:
             margin: 10px 0 16px 0;
         }
 
-        .quick-link {
-            display: block;
-            background: #ffffff;
-            border-radius: 18px;
-            padding: 18px;
-            text-align: center;
-            text-decoration: none;
-            color: #9a4b1e !important;
-            box-shadow: 0 8px 18px rgba(0,0,0,0.05);
-            border: 1px solid rgba(217, 119, 6, 0.12);
+        .quick-card-title {
+            font-size: 20px;
             font-weight: 700;
+            color: #2f3640;
+            margin-bottom: 6px;
         }
 
-        .quick-link:hover {
-            transform: translateY(-2px);
-            transition: 0.2s ease;
+        .quick-card-desc {
+            font-size: 14px;
+            color: #66776f;
+            margin-bottom: 10px;
         }
 
         div[data-testid="stMetric"] {
-            background: white;
+            background: rgba(255,255,255,0.92);
             border: 1px solid rgba(217, 119, 6, 0.12);
             border-radius: 18px;
             padding: 12px;
             box-shadow: 0 6px 16px rgba(0,0,0,0.04);
         }
 
-        button[kind="primary"] {
-            background-color: #d97706 !important;
-            border: none !important;
+        div[data-testid="stButton"] > button {
+            border-radius: 18px;
+            border: 1px solid rgba(217, 119, 6, 0.14);
+            background: white;
+            min-height: 54px;
+            font-weight: 700;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        }
+
+        div[data-testid="stButton"] > button:hover {
+            border-color: #d97706;
+            color: #d97706;
+        }
+
+        div[data-testid="stPlotlyChart"] {
+            background: linear-gradient(180deg, rgba(255,255,255,0.88) 0%, rgba(255,248,240,0.94) 100%);
+            border: 1px solid rgba(217, 119, 6, 0.12);
+            border-radius: 22px;
+            padding: 12px;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.05);
+            margin-bottom: 12px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .stApp {
+                background: linear-gradient(180deg, #1f1b16 0%, #2b241d 100%);
+            }
+
+            .soft-card,
+            div[data-testid="stMetric"],
+            div[data-testid="stPlotlyChart"] {
+                background: rgba(30, 24, 20, 0.92) !important;
+                border: 1px solid rgba(251, 146, 60, 0.18) !important;
+            }
+
+            .section-title,
+            .quick-card-title {
+                color: #fdba74 !important;
+            }
+
+            .quick-card-desc {
+                color: #f3e2d0 !important;
+            }
         }
     </style>
     """, unsafe_allow_html=True)
@@ -144,28 +184,7 @@ def render_top_header() -> None:
         </div>
     </div>
     """, unsafe_allow_html=True)
-def inject_ui_style() -> None:
-    st.markdown("""
-    <style>
-        .stApp {
-            background: linear-gradient(180deg, #fffaf3 0%, #fff3e3 100%);
-        }
 
-        div[data-testid="stButton"] > button {
-            border-radius: 18px;
-            border: 1px solid rgba(217, 119, 6, 0.14);
-            background: white;
-            min-height: 58px;
-            font-weight: 700;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
-        }
-
-        div[data-testid="stButton"] > button:hover {
-            border-color: #d97706;
-            color: #d97706;
-        }
-    </style>
-    """, unsafe_allow_html=True)
 
 # ---------- Core helpers ----------
 def ensure_config() -> None:
@@ -229,7 +248,7 @@ def clear_cache_and_rerun() -> None:
     st.cache_data.clear()
     st.rerun()
 def go_to_page(page_name: str) -> None:
-    st.session_state["page"] = page_name
+    st.session_state["pending_page"] = page_name
     st.rerun()
 
 
@@ -1703,9 +1722,7 @@ def render_help_module() -> None:
 # ---------- Main ----------
 def main() -> None:
     inject_ui_style()
-
-    st.title("Nihaoma Student Operations")
-    st.caption("Dashboard Operasional Calon Mahasiswa China")
+    render_top_header()
 
     try:
         data = load_bootstrap()
@@ -1719,22 +1736,41 @@ def main() -> None:
     payments_df = normalize_df(as_df(data.get("payments", [])))
     refs = data.get("references", {}) or {}
 
-    if "page" not in st.session_state:
-        st.session_state["page"] = "Dashboard"
+    if "sidebar_page" not in st.session_state:
+        st.session_state["sidebar_page"] = "Dashboard"
+
+    PAGES = [
+        "Dashboard",
+        "Calon Mahasiswa",
+        "Dokumen",
+        "Invoice & Pembayaran",
+        "Bantuan & SOP",
+    ]
+
+    if "sidebar_page" not in st.session_state:
+        st.session_state["sidebar_page"] = "Dashboard"
+
+    if "pending_page" in st.session_state:
+        st.session_state["sidebar_page"] = st.session_state.pop("pending_page")
 
     with st.sidebar:
-        st.markdown("### Menu")
-        st.radio(
-            "",
-            ["Dashboard", "Calon Mahasiswa", "Dokumen", "Invoice & Pembayaran", "Bantuan & SOP"],
-            key="page",
-            label_visibility="collapsed",
-        )
-        if st.button("Refresh data", use_container_width=True):
-            clear_cache_and_rerun()
-        st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
+    if LOGO_PATH.exists():
+        st.image(str(LOGO_PATH), width=120)
 
-    page = st.session_state["page"]
+    st.markdown("## Nihaoma")
+    st.caption("Education Center")
+
+    page = st.radio(
+        "Pilih Menu",
+        PAGES,
+        key="sidebar_page",
+    )
+
+    if st.button("Refresh data", use_container_width=True):
+        clear_cache_and_rerun()
+
+    st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
+
 
     if page == "Dashboard":
         render_dashboard(students_df, invoices_df, payments_df)
