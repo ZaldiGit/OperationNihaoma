@@ -144,6 +144,28 @@ def render_top_header() -> None:
         </div>
     </div>
     """, unsafe_allow_html=True)
+def inject_ui_style() -> None:
+    st.markdown("""
+    <style>
+        .stApp {
+            background: linear-gradient(180deg, #fffaf3 0%, #fff3e3 100%);
+        }
+
+        div[data-testid="stButton"] > button {
+            border-radius: 18px;
+            border: 1px solid rgba(217, 119, 6, 0.14);
+            background: white;
+            min-height: 58px;
+            font-weight: 700;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        }
+
+        div[data-testid="stButton"] > button:hover {
+            border-color: #d97706;
+            color: #d97706;
+        }
+    </style>
+    """, unsafe_allow_html=True)
 
 # ---------- Core helpers ----------
 def ensure_config() -> None:
@@ -205,6 +227,9 @@ def load_bootstrap() -> Dict[str, Any]:
 
 def clear_cache_and_rerun() -> None:
     st.cache_data.clear()
+    st.rerun()
+def go_to_page(page_name: str) -> None:
+    st.session_state["page"] = page_name
     st.rerun()
 
 
@@ -814,21 +839,33 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
     c4.metric("Sudah Dibayar", format_currency(total_dibayar))
     c5.metric("Outstanding", format_currency(total_outstanding))
 
-    st.markdown('<div class="section-title">Akses Cepat</div>', unsafe_allow_html=True)
+    st.markdown("## Akses Cepat")
 
     q1, q2, q3, q4 = st.columns(4)
 
     with q1:
-        st.markdown('<div class="soft-card"><b>Calon Mahasiswa</b><br><span style="color:#66776f;">Kelola data student</span></div>', unsafe_allow_html=True)
+        st.markdown("### Calon Mahasiswa")
+        st.caption("Kelola data student")
+        if st.button("Buka Calon Mahasiswa", key="quick_students", use_container_width=True):
+            go_to_page("Calon Mahasiswa")
 
     with q2:
-        st.markdown('<div class="soft-card"><b>Dokumen</b><br><span style="color:#66776f;">Upload & verifikasi</span></div>', unsafe_allow_html=True)
+        st.markdown("### Dokumen")
+        st.caption("Upload & verifikasi")
+        if st.button("Buka Dokumen", key="quick_documents", use_container_width=True):
+            go_to_page("Dokumen")
 
     with q3:
-        st.markdown('<div class="soft-card"><b>Invoice</b><br><span style="color:#66776f;">Buat dan monitor invoice</span></div>', unsafe_allow_html=True)
+        st.markdown("### Invoice")
+        st.caption("Buat dan monitor invoice")
+        if st.button("Buka Invoice", key="quick_invoice", use_container_width=True):
+            go_to_page("Invoice & Pembayaran")
 
     with q4:
-        st.markdown('<div class="soft-card"><b>Pembayaran</b><br><span style="color:#66776f;">Catat payment masuk</span></div>', unsafe_allow_html=True)
+        st.markdown("### Pembayaran")
+        st.caption("Catat payment masuk")
+        if st.button("Buka Pembayaran", key="quick_payment", use_container_width=True):
+            go_to_page("Invoice & Pembayaran")
 
     left, right = st.columns(2)
 
@@ -1666,7 +1703,9 @@ def render_help_module() -> None:
 # ---------- Main ----------
 def main() -> None:
     inject_ui_style()
-    render_top_header()
+
+    st.title("Nihaoma Student Operations")
+    st.caption("Dashboard Operasional Calon Mahasiswa China")
 
     try:
         data = load_bootstrap()
@@ -1680,22 +1719,22 @@ def main() -> None:
     payments_df = normalize_df(as_df(data.get("payments", [])))
     refs = data.get("references", {}) or {}
 
+    if "page" not in st.session_state:
+    st.session_state["page"] = "Dashboard"
+
     with st.sidebar:
-        if LOGO_PATH.exists():
-            st.image(str(LOGO_PATH), width=140)
-
-        st.markdown("## Nihaoma")
-        st.caption("Education Center")
-
-        page = st.radio(
-            "Pilih Menu",
+        st.markdown("### Menu")
+        st.radio(
+            "",
             ["Dashboard", "Calon Mahasiswa", "Dokumen", "Invoice & Pembayaran", "Bantuan & SOP"],
+            key="page",
+            label_visibility="collapsed",
         )
-
         if st.button("Refresh data", use_container_width=True):
             clear_cache_and_rerun()
-
         st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
+
+    page = st.session_state["page"]
 
     if page == "Dashboard":
         render_dashboard(students_df, invoices_df, payments_df)
