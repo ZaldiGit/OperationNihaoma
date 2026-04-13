@@ -154,6 +154,26 @@ def inject_ui_style() -> None:
             box-shadow: 0 8px 20px rgba(0,0,0,0.04);
         }
 
+        div[data-testid="stMetricLabel"] {
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            line-height: 1.2 !important;
+        }
+
+        div[data-testid="stMetricValue"] {
+            font-size: 28px !important;
+            font-weight: 800 !important;
+            line-height: 1.05 !important;
+        }
+
+        div[data-testid="stMetricValue"] > div {
+            font-size: 28px !important;
+            font-weight: 800 !important;
+            white-space: normal !important;
+            overflow: visible !important;
+            text-overflow: unset !important;
+        }
+
         div[data-testid="stButton"] > button {
             border-radius: 18px;
             border: 1px solid rgba(217, 119, 6, 0.14);
