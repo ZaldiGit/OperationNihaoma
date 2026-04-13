@@ -54,11 +54,11 @@ def inject_ui_style() -> None:
     st.markdown("""
     <style>
         .stApp {
-            background: linear-gradient(180deg, #f4f7f5 0%, #eef3ef 100%);
+            background: linear-gradient(180deg, #fffaf3 0%, #fff3e3 100%);
         }
 
         section[data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #18392b 0%, #285943 100%);
+            background: linear-gradient(180deg, #a84f16 0%, #d97706 100%);
         }
 
         section[data-testid="stSidebar"] * {
@@ -66,7 +66,7 @@ def inject_ui_style() -> None:
         }
 
         .hero-box {
-            background: linear-gradient(135deg, #f5df90 0%, #f0d47a 100%);
+            background: linear-gradient(135deg, #ffd58a 0%, #f59e0b 100%);
             border-radius: 24px;
             padding: 30px 34px;
             margin-bottom: 22px;
@@ -76,15 +76,15 @@ def inject_ui_style() -> None:
         .hero-title {
             font-size: 38px;
             font-weight: 800;
-            color: #b34742;
+            color: #8a3b12;
             line-height: 1.15;
             margin-bottom: 8px;
         }
 
         .hero-subtitle {
             font-size: 18px;
-            color: #9f4b43;
-            margin-bottom: 18px;
+            color: #9a4b1e;
+            margin-bottom: 0;
         }
 
         .soft-card {
@@ -92,14 +92,14 @@ def inject_ui_style() -> None:
             border-radius: 20px;
             padding: 18px 20px;
             box-shadow: 0 8px 22px rgba(0,0,0,0.05);
-            border: 1px solid rgba(0,0,0,0.04);
+            border: 1px solid rgba(217, 119, 6, 0.12);
             margin-bottom: 14px;
         }
 
         .section-title {
             font-size: 24px;
             font-weight: 700;
-            color: #294c3b;
+            color: #a84f16;
             margin: 10px 0 16px 0;
         }
 
@@ -110,9 +110,9 @@ def inject_ui_style() -> None:
             padding: 18px;
             text-align: center;
             text-decoration: none;
-            color: #2d4f3e !important;
+            color: #9a4b1e !important;
             box-shadow: 0 8px 18px rgba(0,0,0,0.05);
-            border: 1px solid rgba(0,0,0,0.04);
+            border: 1px solid rgba(217, 119, 6, 0.12);
             font-weight: 700;
         }
 
@@ -120,25 +120,30 @@ def inject_ui_style() -> None:
             transform: translateY(-2px);
             transition: 0.2s ease;
         }
+
+        div[data-testid="stMetric"] {
+            background: white;
+            border: 1px solid rgba(217, 119, 6, 0.12);
+            border-radius: 18px;
+            padding: 12px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.04);
+        }
+
+        button[kind="primary"] {
+            background-color: #d97706 !important;
+            border: none !important;
+        }
     </style>
     """, unsafe_allow_html=True)
-
 def render_top_header() -> None:
-    left, right = st.columns([1.7, 1])
-
-    with left:
-        st.markdown("""
-        <div class="hero-box">
-            <div class="hero-title">Nihaoma Student Operations</div>
-            <div class="hero-subtitle">
-                Dashboard operasional calon mahasiswa yang terhubung ke Google Sheet live
-            </div>
+    st.markdown("""
+    <div class="hero-box">
+        <div class="hero-title">Nihaoma Student Operations</div>
+        <div class="hero-subtitle">
+            Dashboard operasional calon mahasiswa yang terhubung ke Google Sheet live
         </div>
-        """, unsafe_allow_html=True)
-
-    with right:
-        if HERO_STUDENT_PATH.exists():
-            st.image(str(HERO_STUDENT_PATH), use_container_width=True)
+    </div>
+    """, unsafe_allow_html=True)
 
 # ---------- Core helpers ----------
 def ensure_config() -> None:
@@ -779,7 +784,7 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
 
     with top_right:
         if HERO_STUDENT_PATH.exists():
-            st.image(str(HERO_STUDENT_PATH), use_container_width=True)
+            st.image(str(HERO_STUDENT_PATH), width=280)
     active_students = students_df.copy()
     if not active_students.empty and "is_active" in active_students.columns:
         active_students = active_students[
