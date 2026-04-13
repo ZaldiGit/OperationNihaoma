@@ -38,6 +38,7 @@ LOGO_PATH = BASE_DIR / "logo-nihaoma-rounded.png"
 SIGNATURE_PATH = BASE_DIR / "signature-ttd.png"
 STAMP_PATH = BASE_DIR / "stamp-cap.png"
 APPROVAL_PATH = BASE_DIR / "approval-composite.png"
+HERO_STUDENT_PATH = BASE_DIR / "hero-student.png"
 
 PROFILE_FIXED = {
     "Nama Brand": "Nihaoma Education Center",
@@ -49,6 +50,96 @@ PROFILE_FIXED = {
     "Info Pembayaran": "Bank BCA - 1234567890 a/n Nihaoma Education Center",
     "Catatan Footer": "Terima kasih atas kepercayaan Anda. Invoice ini diterbitkan untuk kebutuhan administrasi program pendidikan ke China.",
 }
+def inject_ui_style() -> None:
+    st.markdown("""
+    <style>
+        .stApp {
+            background: linear-gradient(180deg, #f4f7f5 0%, #eef3ef 100%);
+        }
+
+        section[data-testid="stSidebar"] {
+            background: linear-gradient(180deg, #18392b 0%, #285943 100%);
+        }
+
+        section[data-testid="stSidebar"] * {
+            color: white !important;
+        }
+
+        .hero-box {
+            background: linear-gradient(135deg, #f5df90 0%, #f0d47a 100%);
+            border-radius: 24px;
+            padding: 30px 34px;
+            margin-bottom: 22px;
+            box-shadow: 0 10px 28px rgba(0,0,0,0.08);
+        }
+
+        .hero-title {
+            font-size: 38px;
+            font-weight: 800;
+            color: #b34742;
+            line-height: 1.15;
+            margin-bottom: 8px;
+        }
+
+        .hero-subtitle {
+            font-size: 18px;
+            color: #9f4b43;
+            margin-bottom: 18px;
+        }
+
+        .soft-card {
+            background: white;
+            border-radius: 20px;
+            padding: 18px 20px;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.04);
+            margin-bottom: 14px;
+        }
+
+        .section-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #294c3b;
+            margin: 10px 0 16px 0;
+        }
+
+        .quick-link {
+            display: block;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 18px;
+            text-align: center;
+            text-decoration: none;
+            color: #2d4f3e !important;
+            box-shadow: 0 8px 18px rgba(0,0,0,0.05);
+            border: 1px solid rgba(0,0,0,0.04);
+            font-weight: 700;
+        }
+
+        .quick-link:hover {
+            transform: translateY(-2px);
+            transition: 0.2s ease;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def render_top_header() -> None:
+    left, right = st.columns([1.7, 1])
+
+    with left:
+        st.markdown("""
+        <div class="hero-box">
+            <div class="hero-title">Nihaoma Student Operations</div>
+            <div class="hero-subtitle">
+                Dashboard operasional calon mahasiswa yang terhubung ke Google Sheet live
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with right:
+        if HERO_STUDENT_PATH.exists():
+            st.image(str(HERO_STUDENT_PATH), use_container_width=True)
+
 # ---------- Core helpers ----------
 def ensure_config() -> None:
     if not SCRIPT_URL or not WRITE_TOKEN:
@@ -673,7 +764,22 @@ def generate_invoice_pdf(record: dict, profile: dict) -> bytes:
 # ---------- Dashboard ----------
 def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payments_df: pd.DataFrame) -> None:
     st.subheader("Dashboard")
+    top_left, top_right = st.columns([1.6, 1])
 
+    with top_left:
+        st.markdown("""
+        <div class="soft-card">
+            <div class="section-title">Selamat datang di dashboard Nihaoma</div>
+            <div style="color:#5b6f64; font-size:16px;">
+                Pantau calon mahasiswa, dokumen, invoice, pembayaran, dan progress operasional
+                dalam satu tampilan yang lebih rapi.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with top_right:
+        if HERO_STUDENT_PATH.exists():
+            st.image(str(HERO_STUDENT_PATH), use_container_width=True)
     active_students = students_df.copy()
     if not active_students.empty and "is_active" in active_students.columns:
         active_students = active_students[
@@ -702,6 +808,22 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
     c3.metric("Nilai Invoice", format_currency(total_nilai_invoice))
     c4.metric("Sudah Dibayar", format_currency(total_dibayar))
     c5.metric("Outstanding", format_currency(total_outstanding))
+
+    st.markdown('<div class="section-title">Akses Cepat</div>', unsafe_allow_html=True)
+
+    q1, q2, q3, q4 = st.columns(4)
+
+    with q1:
+        st.markdown('<div class="soft-card"><b>Calon Mahasiswa</b><br><span style="color:#66776f;">Kelola data student</span></div>', unsafe_allow_html=True)
+
+    with q2:
+        st.markdown('<div class="soft-card"><b>Dokumen</b><br><span style="color:#66776f;">Upload & verifikasi</span></div>', unsafe_allow_html=True)
+
+    with q3:
+        st.markdown('<div class="soft-card"><b>Invoice</b><br><span style="color:#66776f;">Buat dan monitor invoice</span></div>', unsafe_allow_html=True)
+
+    with q4:
+        st.markdown('<div class="soft-card"><b>Pembayaran</b><br><span style="color:#66776f;">Catat payment masuk</span></div>', unsafe_allow_html=True)
 
     left, right = st.columns(2)
 
@@ -1538,8 +1660,8 @@ def render_help_module() -> None:
 
 # ---------- Main ----------
 def main() -> None:
-    st.title("Nihaoma Student Operations")
-    st.caption("Dashboard operasional calon mahasiswa yang terhubung ke Google Sheet live")
+    inject_ui_style()
+    render_top_header()
 
     try:
         data = load_bootstrap()
@@ -1554,14 +1676,20 @@ def main() -> None:
     refs = data.get("references", {}) or {}
 
     with st.sidebar:
-        st.markdown("### Menu")
+        if LOGO_PATH.exists():
+            st.image(str(LOGO_PATH), width=140)
+
+        st.markdown("## Nihaoma")
+        st.caption("Education Center")
+
         page = st.radio(
-            "",
+            "Pilih Menu",
             ["Dashboard", "Calon Mahasiswa", "Dokumen", "Invoice & Pembayaran", "Bantuan & SOP"],
-            label_visibility="collapsed",
         )
+
         if st.button("Refresh data", use_container_width=True):
             clear_cache_and_rerun()
+
         st.caption(f"Data terakhir dimuat: {safe_text(data.get('meta', {}).get('generated_at'))}")
 
     if page == "Dashboard":
