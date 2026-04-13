@@ -952,10 +952,6 @@ def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payme
         </div>
         """, unsafe_allow_html=True)
 
-    with top_right:
-        if HERO_STUDENT_PATH.exists():
-            st.image(str(HERO_STUDENT_PATH), width=220)
-            st.markdown('<div class="sidebar-hero-caption">Welcome to Nihaoma</div>', unsafe_allow_html=True)
     active_students = students_df.copy()
     if not active_students.empty and "is_active" in active_students.columns:
         active_students = active_students[
