@@ -186,7 +186,7 @@ def render_top_header() -> None:
     <div class="hero-box">
         <div class="hero-title">Nihaoma Student Operations</div>
         <div class="hero-subtitle">
-            Dashboard operasional calon mahasiswa yang terhubung ke Google Sheet live
+            Dashboard Operasional Calon Mahasiswa (Klien) Nihaoma
         </div>
     </div>
     """, unsafe_allow_html=True)
