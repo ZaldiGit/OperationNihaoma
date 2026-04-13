@@ -184,7 +184,7 @@ def inject_ui_style() -> None:
 def render_top_header() -> None:
     st.markdown("""
     <div class="hero-box">
-        <div class="hero-title">Nihaoma Student Operations</div>
+        <div class="hero-title"> Single Sign-On (SSO) Nihaoma Education Center</div>
         <div class="hero-subtitle">
             Dashboard Operasional Calon Mahasiswa (Klien) Nihaoma
         </div>
