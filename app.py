@@ -45,9 +45,9 @@ PROFILE_FIXED = {
     "Alamat ID": "Gedung Wirausaha Lantai 1,\nJalan HR Rasuna Said Kav. C-5,\nKelurahan Karet, Kecamatan Setia Budi,\nJakarta Selatan 12920",
     "Alamat CN": "佛城西路21号楼 1709-C, 江宁区, 南京市, 江苏, China.",
     "Alamat EN": "Fochengxilu 21 building, room 1709-C, Jiangning District,\nNanjing, Jiangsu, China.",
-    "Email": "admin@nihaoma-education.com",
-    "Telepon / WA": "+62 812-0000-0000",
-    "Info Pembayaran": "Bank BCA - 1234567890 a/n Nihaoma Education Center",
+    "Email": "nihaoma.eduu@gmail.com",
+    "Telepon / WA": "083137127808",
+    "Info Pembayaran": "Bank BCA - 0068601889 a/n Nihaoma Education Center",
     "Catatan Footer": "Terima kasih atas kepercayaan Anda. Invoice ini diterbitkan untuk kebutuhan administrasi program pendidikan ke China.",
 }
 def inject_ui_style() -> None:
