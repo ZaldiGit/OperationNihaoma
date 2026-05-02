@@ -1617,17 +1617,25 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
             if "tanggal_upload" in docs.columns:
                 docs["tanggal_upload"] = docs["tanggal_upload"].astype(str)
             filter_cols = st.columns(3)
-            student_filter = filter_cols[0].selectbox("Filter student_id", ["Semua"] + sorted(docs["student_id"].astype(str).unique().tolist()))
+            docs["student_display"] = docs.apply(
+                lambda r: student_code_name(r.get("student_id"), r.get("nama_mahasiswa")),
+                axis=1,
+            )
+
+            student_filter = filter_cols[0].selectbox(
+                "Filter mahasiswa",
+                ["Semua"] + sorted(docs["student_display"].astype(str).unique().tolist())
+            )
             jenis_filter = filter_cols[1].selectbox("Filter jenis dokumen", ["Semua"] + sorted(docs["jenis_dokumen"].astype(str).unique().tolist()))
             verify_filter = filter_cols[2].selectbox("Filter status verifikasi", ["Semua"] + sorted(docs["status_verifikasi"].astype(str).unique().tolist()))
             if student_filter != "Semua":
-                docs = docs[docs["student_id"].astype(str) == student_filter]
+                docs = docs[docs["student_display"].astype(str) == student_filter]
             if jenis_filter != "Semua":
                 docs = docs[docs["jenis_dokumen"].astype(str) == jenis_filter]
             if verify_filter != "Semua":
                 docs = docs[docs["status_verifikasi"].astype(str) == verify_filter]
             show_cols = [c for c in [
-                "doc_id", "student_id", "nama_mahasiswa", "jenis_dokumen", "nama_file",
+                "doc_id", "student_display", "student_id", "nama_mahasiswa", "jenis_dokumen", "nama_file",
                 "tanggal_upload", "uploaded_by", "status_verifikasi", "link_file", "storage_path"
             ] if c in docs.columns]
             st.dataframe(docs[show_cols], use_container_width=True, hide_index=True)
