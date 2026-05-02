@@ -329,6 +329,96 @@ def safe_text(value: Any) -> str:
         return ""
     return str(value)
 
+def clean_filename_part(value: Any) -> str:
+    text = safe_text(value).strip()
+    text = re.sub(r"[^\w\s.-]", "", text, flags=re.UNICODE)
+    text = re.sub(r"\s+", "-", text)
+    return text.strip("-_.") or "Tanpa-Nama"
+
+
+def get_student_short_name(student: Dict[str, Any]) -> str:
+    return (
+        safe_text(student.get("nama_panggilan")).strip()
+        or safe_text(student.get("nama_lengkap")).strip()
+        or safe_text(student.get("nama_mahasiswa")).strip()
+    )
+
+
+def student_code_name(student_id: Any, nama: Any) -> str:
+    sid = safe_text(student_id).strip()
+    name = safe_text(nama).strip()
+    return f"{sid} - {name}" if sid and name else sid or name
+
+
+def student_display_label(student: Dict[str, Any]) -> str:
+    return student_code_name(
+        student.get("student_id"),
+        get_student_short_name(student),
+    )
+
+
+def build_student_options(students_df: pd.DataFrame) -> tuple[List[str], Dict[str, str]]:
+    labels = []
+    mapping = {}
+
+    if students_df.empty:
+        return labels, mapping
+
+    for _, row in students_df.iterrows():
+        student = row.to_dict()
+        sid = safe_text(student.get("student_id"))
+        label = student_display_label(student)
+        labels.append(label)
+        mapping[label] = sid
+
+    return labels, mapping
+
+
+def invoice_code_name(kode_invoice: Any, nama_mahasiswa: Any) -> str:
+    code = safe_text(kode_invoice).strip()
+    name = safe_text(nama_mahasiswa).strip()
+    return f"{code} - {name}" if code and name else code or name
+
+
+def invoice_display_label(invoice: Dict[str, Any]) -> str:
+    label = invoice_code_name(
+        invoice.get("kode_invoice") or invoice.get("invoice_id"),
+        invoice.get("nama_mahasiswa"),
+    )
+    invoice_type = safe_text(invoice.get("invoice_type")).strip()
+    return f"{label} ({invoice_type})" if invoice_type else label
+
+
+def build_invoice_options(inv_df: pd.DataFrame) -> tuple[List[str], Dict[str, str]]:
+    labels = []
+    mapping = {}
+
+    if inv_df.empty:
+        return labels, mapping
+
+    for _, row in inv_df.iterrows():
+        invoice = row.to_dict()
+        invoice_id = safe_text(invoice.get("invoice_id"))
+        label = invoice_display_label(invoice)
+        labels.append(label)
+        mapping[label] = invoice_id
+
+    return labels, mapping
+
+
+def invoice_pdf_filename(kode_invoice: Any, nama_mahasiswa: Any) -> str:
+    code = clean_filename_part(kode_invoice)
+    name = clean_filename_part(nama_mahasiswa)
+    return f"{code}-{name}.pdf"
+
+
+def document_filename(student_id: Any, nama_mahasiswa: Any, jenis_dokumen: Any, original_name: str) -> str:
+    suffix = Path(original_name).suffix.lower()
+    sid = clean_filename_part(student_id)
+    name = clean_filename_part(nama_mahasiswa)
+    doc_type = clean_filename_part(jenis_dokumen)
+    return f"{sid}-{name}-{doc_type}{suffix}"
+
 
 def to_number(value: Any) -> float:
     try:
