@@ -1336,8 +1336,9 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            detail_options = students_df["student_id"].astype(str).tolist()
-            selected_detail_id = st.selectbox("Pilih mahasiswa", detail_options, key="detail_student_id")
+            detail_options, detail_map = build_student_options(students_df)
+            selected_detail_label = st.selectbox("Pilih mahasiswa", detail_options, key="detail_student_id")
+            selected_detail_id = detail_map[selected_detail_label]
             row_df = students_df[students_df["student_id"].astype(str) == str(selected_detail_id)]
             if row_df.empty:
                 st.info("Data tidak ditemukan.")
@@ -1555,8 +1556,9 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_ids = students_df["student_id"].astype(str).tolist()
-            selected_student_id = st.selectbox("Pilih mahasiswa", student_ids, key="doc_student_id")
+            student_options, student_map = build_student_options(students_df)
+            selected_student_label = st.selectbox("Pilih mahasiswa", student_options, key="doc_student_id")
+            selected_student_id = student_map[selected_student_label]
             student = find_student(students_df, selected_student_id)
             doc_types = refs.get("required_doc_types", []) or ["Passport", "Ijazah", "Transkrip", "Foto", "Bukti Pembayaran"]
 
@@ -1585,7 +1587,12 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
                                 "student_id": selected_student_id,
                                 "nama_mahasiswa": safe_text(student.get("nama_lengkap")),
                                 "jenis_dokumen": jenis_dokumen,
-                                "nama_file": file.name,
+                                "nama_file": document_filename(
+                                    selected_student_id,
+                                    safe_text(student.get("nama_lengkap")),
+                                    jenis_dokumen,
+                                    file.name,
+                                ),
                                 "mime_type": file.type or "application/octet-stream",
                                 "file_base64": b64,
                                 "uploaded_by": uploaded_by,
