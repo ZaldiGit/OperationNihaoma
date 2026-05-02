@@ -1405,7 +1405,12 @@ def render_edit_form(student: Dict[str, Any], refs: Dict[str, Any]) -> None:
         col7, col8, col9 = st.columns(3)
         email = col7.text_input("Email", value=safe_text(student.get("email")))
         no_paspor_atau_nik = col8.text_input("No Paspor / NIK", value=safe_text(student.get("no_paspor_atau_nik")))
-        intake = col9.selectbox("Intake", intake_options, index=option_index(intake_options, student.get("intake")))
+        intake_options_fixed = ["", "Maret", "September"]
+        intake = col9.selectbox(
+            "Intake",
+            intake_options_fixed,
+            index=option_index(intake_options_fixed, student.get("intake")),
+        )
 
         col10, col11, col12 = st.columns(3)
         program_diminati = col10.selectbox("Program", program_options, index=option_index(program_options, student.get("program_diminati")))
@@ -1414,7 +1419,7 @@ def render_edit_form(student: Dict[str, Any], refs: Dict[str, Any]) -> None:
 
         col13, col14, col15 = st.columns(3)
         negara_tujuan = col13.text_input("Negara Tujuan", value=safe_text(student.get("negara_tujuan")))
-        pic_admin = col14.selectbox("PIC", pic_options, index=option_index(pic_options, student.get("pic_admin")))
+        pic_admin = col14.text_input("PIC", value=safe_text(student.get("pic_admin")))
         status_proses = col15.selectbox("Status Proses", status_options, index=option_index(status_options, student.get("status_proses")))
 
         col16, col17, col18 = st.columns(3)
@@ -1489,7 +1494,7 @@ def render_add_form(refs: Dict[str, Any]) -> None:
         col7, col8, col9 = st.columns(3)
         email = col7.text_input("Email")
         no_paspor_atau_nik = col8.text_input("No Paspor / NIK")
-        intake = col9.selectbox("Intake", [""] + intake_options)
+        intake = col9.selectbox("Intake", ["", "Maret", "September"])
 
         col10, col11, col12 = st.columns(3)
         program_diminati = col10.selectbox("Program", [""] + program_options)
@@ -1498,7 +1503,7 @@ def render_add_form(refs: Dict[str, Any]) -> None:
 
         col13, col14, col15 = st.columns(3)
         negara_tujuan = col13.text_input("Negara Tujuan", value="China")
-        pic_admin = col14.selectbox("PIC", [""] + pic_options)
+        pic_admin = col14.text_input("PIC")
         status_proses = col15.selectbox("Status Proses", status_options, index=0 if status_options else None)
 
         col16, col17 = st.columns(2)
