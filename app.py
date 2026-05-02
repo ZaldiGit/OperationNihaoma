@@ -269,7 +269,7 @@ def upload_invoice_pdf_to_drive(
             "nama_mahasiswa": nama_mahasiswa,
             "kode_invoice": kode_invoice,
             "mime_type": "application/pdf",
-            "nama_file": invoice_file_name(kode_invoice, nama_mahasiswa),
+            "nama_file": f"{kode_invoice}.pdf",
             "file_base64": file_base64,
         },
     )
@@ -328,84 +328,6 @@ def safe_text(value: Any) -> str:
     if isinstance(value, float) and pd.isna(value):
         return ""
     return str(value)
-
-
-def first_name(value: Any) -> str:
-    """Ambil nama pendek untuk label/file: Arin dari Arin Putri."""
-    text = safe_text(value).strip()
-    return text.split()[0] if text else ""
-
-
-def clean_filename_part(value: Any, default: str = "TanpaNama") -> str:
-    """Bersihkan teks agar aman dipakai sebagai nama file Google Drive/PDF."""
-    text = safe_text(value).strip()
-    if not text:
-        text = default
-    text = re.sub(r"[^\w\s.-]", "", text, flags=re.UNICODE)
-    text = re.sub(r"\s+", "_", text).strip("._-")
-    return text or default
-
-
-def student_label_from_values(student_id: Any, nama_mahasiswa: Any) -> str:
-    """Format tampilan mahasiswa: STD-0010 - Arin."""
-    sid = safe_text(student_id).strip()
-    name = first_name(nama_mahasiswa)
-    return f"{sid} - {name}" if sid and name else sid or name
-
-
-def student_label(row: Dict[str, Any]) -> str:
-    return student_label_from_values(row.get("student_id"), row.get("nama_lengkap") or row.get("nama_mahasiswa"))
-
-
-def student_options_from_df(students_df: pd.DataFrame) -> tuple[List[str], Dict[str, str]]:
-    """Buat opsi selectbox dengan label nama, tetapi tetap menyimpan student_id asli."""
-    if students_df.empty or "student_id" not in students_df.columns:
-        return [], {}
-    labels: List[str] = []
-    mapping: Dict[str, str] = {}
-    for _, row in students_df.iterrows():
-        sid = safe_text(row.get("student_id"))
-        name = safe_text(row.get("nama_lengkap"))
-        label = student_label_from_values(sid, name)
-        if label:
-            labels.append(label)
-            mapping[label] = sid
-    return labels, mapping
-
-
-def invoice_label_from_values(kode_invoice: Any, nama_mahasiswa: Any, invoice_type: Any = "") -> str:
-    """Format tampilan invoice: INV010 - Arin atau INV010 - Arin (Admin)."""
-    code = safe_text(kode_invoice).strip()
-    name = first_name(nama_mahasiswa)
-    inv_type = safe_text(invoice_type).strip()
-    base = f"{code} - {name}" if code and name else code or name
-    return f"{base} ({inv_type})" if base and inv_type else base
-
-
-def invoice_label(row: Dict[str, Any]) -> str:
-    return invoice_label_from_values(
-        row.get("kode_invoice") or row.get("invoice_id"),
-        row.get("nama_mahasiswa"),
-        row.get("invoice_type"),
-    )
-
-
-def invoice_file_name(kode_invoice: Any, nama_mahasiswa: Any, ext: str = "pdf") -> str:
-    """Format nama file invoice: INV010-Arin.pdf."""
-    code = clean_filename_part(kode_invoice, "INV")
-    name = clean_filename_part(first_name(nama_mahasiswa), "TanpaNama")
-    ext = ext.lstrip(".") or "pdf"
-    return f"{code}-{name}.{ext}"
-
-
-def document_file_name(student_id: Any, nama_mahasiswa: Any, jenis_dokumen: Any, original_name: Any) -> str:
-    """Format nama file dokumen: STD-0010-Arin-Passport.pdf."""
-    original = safe_text(original_name).strip()
-    suffix = Path(original).suffix if original else ""
-    sid = clean_filename_part(student_id, "STD")
-    name = clean_filename_part(first_name(nama_mahasiswa), "TanpaNama")
-    doc_type = clean_filename_part(jenis_dokumen, "Dokumen")
-    return f"{sid}-{name}-{doc_type}{suffix}"
 
 
 def to_number(value: Any) -> float:
@@ -1261,20 +1183,14 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
                 ] if c in filtered.columns
             ]
             display_df = filtered[display_columns].copy() if display_columns else filtered.copy()
-            if {"student_id", "nama_lengkap"}.issubset(display_df.columns):
-                display_df["student_id"] = display_df.apply(
-                    lambda r: student_label_from_values(r.get("student_id"), r.get("nama_lengkap")),
-                    axis=1,
-                )
             if "estimasi_biaya" in display_df.columns:
                 display_df["estimasi_biaya"] = display_df["estimasi_biaya"].apply(format_currency)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             st.caption(f"Total data tampil: {len(filtered)}")
 
-            student_options, student_map = student_options_from_df(filtered)
+            student_options = filtered["student_id"].astype(str).tolist() if "student_id" in filtered.columns else []
             if student_options:
-                selected_student_label = st.selectbox("Pilih mahasiswa untuk aksi", student_options, key="student_action_id")
-                selected_id = student_map[selected_student_label]
+                selected_id = st.selectbox("Pilih student_id untuk aksi", student_options, key="student_action_id")
                 action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
                 if action_col1.button("Edit data", use_container_width=True):
                     st.session_state["edit_student_id"] = selected_id
@@ -1328,9 +1244,8 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            detail_options, detail_map = student_options_from_df(students_df)
-            selected_detail_label = st.selectbox("Pilih mahasiswa", detail_options, key="detail_student_id")
-            selected_detail_id = detail_map[selected_detail_label]
+            detail_options = students_df["student_id"].astype(str).tolist()
+            selected_detail_id = st.selectbox("Pilih mahasiswa", detail_options, key="detail_student_id")
             row_df = students_df[students_df["student_id"].astype(str) == str(selected_detail_id)]
             if row_df.empty:
                 st.info("Data tidak ditemukan.")
@@ -1343,12 +1258,7 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
                         "student_id", "nama_lengkap", "email", "no_whatsapp", "program_diminati",
                         "intake", "kampus_tujuan", "kota_tujuan", "status_proses", "pic_admin"
                     ]:
-                        value_display = (
-                            student_label_from_values(student.get("student_id"), student.get("nama_lengkap"))
-                            if field == "student_id"
-                            else safe_text(student.get(field))
-                        )
-                        st.write(f"**{field}**: {value_display}")
+                        st.write(f"**{field}**: {safe_text(student.get(field))}")
                 with right:
                     st.markdown("### Update Progress")
                     with st.form("form_update_progress"):
@@ -1538,10 +1448,7 @@ def render_add_form(refs: Dict[str, Any]) -> None:
                     if result.get("duplicate"):
                         st.warning(f"Data duplikat. student_id existing: {result.get('student_id')}")
                     else:
-                        st.success(
-                            f"Mahasiswa berhasil ditambahkan. ID: "
-                            f"{student_label_from_values(result.get('student_id'), nama_lengkap)}"
-                        )
+                        st.success(f"Mahasiswa berhasil ditambahkan. ID: {result.get('student_id')}")
                     clear_cache_and_rerun()
                 else:
                     st.error(result.get("error", "Gagal menambah mahasiswa"))
@@ -1556,9 +1463,8 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_options, student_map = student_options_from_df(students_df)
-            selected_student_label = st.selectbox("Pilih mahasiswa", student_options, key="doc_student_id")
-            selected_student_id = student_map[selected_student_label]
+            student_ids = students_df["student_id"].astype(str).tolist()
+            selected_student_id = st.selectbox("Pilih mahasiswa", student_ids, key="doc_student_id")
             student = find_student(students_df, selected_student_id)
             doc_types = refs.get("required_doc_types", []) or ["Passport", "Ijazah", "Transkrip", "Foto", "Bukti Pembayaran"]
 
@@ -1587,12 +1493,7 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
                                 "student_id": selected_student_id,
                                 "nama_mahasiswa": safe_text(student.get("nama_lengkap")),
                                 "jenis_dokumen": jenis_dokumen,
-                                "nama_file": document_file_name(
-                                    selected_student_id,
-                                    student.get("nama_lengkap"),
-                                    jenis_dokumen,
-                                    file.name,
-                                ),
+                                "nama_file": file.name,
                                 "mime_type": file.type or "application/octet-stream",
                                 "file_base64": b64,
                                 "uploaded_by": uploaded_by,
@@ -1616,26 +1517,18 @@ def render_documents_module(students_df: pd.DataFrame, documents_df: pd.DataFram
             docs = documents_df.copy()
             if "tanggal_upload" in docs.columns:
                 docs["tanggal_upload"] = docs["tanggal_upload"].astype(str)
-            docs["student_display"] = docs.apply(
-                lambda r: student_label_from_values(r.get("student_id"), r.get("nama_mahasiswa")),
-                axis=1,
-            )
-            docs["doc_display"] = docs.apply(
-                lambda r: f"{safe_text(r.get('doc_id'))} - {first_name(r.get('nama_mahasiswa'))}" if safe_text(r.get("doc_id")) else first_name(r.get("nama_mahasiswa")),
-                axis=1,
-            )
             filter_cols = st.columns(3)
-            student_filter = filter_cols[0].selectbox("Filter mahasiswa", ["Semua"] + sorted(docs["student_display"].dropna().astype(str).unique().tolist()))
+            student_filter = filter_cols[0].selectbox("Filter student_id", ["Semua"] + sorted(docs["student_id"].astype(str).unique().tolist()))
             jenis_filter = filter_cols[1].selectbox("Filter jenis dokumen", ["Semua"] + sorted(docs["jenis_dokumen"].astype(str).unique().tolist()))
             verify_filter = filter_cols[2].selectbox("Filter status verifikasi", ["Semua"] + sorted(docs["status_verifikasi"].astype(str).unique().tolist()))
             if student_filter != "Semua":
-                docs = docs[docs["student_display"].astype(str) == student_filter]
+                docs = docs[docs["student_id"].astype(str) == student_filter]
             if jenis_filter != "Semua":
                 docs = docs[docs["jenis_dokumen"].astype(str) == jenis_filter]
             if verify_filter != "Semua":
                 docs = docs[docs["status_verifikasi"].astype(str) == verify_filter]
             show_cols = [c for c in [
-                "doc_display", "student_display", "nama_mahasiswa", "jenis_dokumen", "nama_file",
+                "doc_id", "student_id", "nama_mahasiswa", "jenis_dokumen", "nama_file",
                 "tanggal_upload", "uploaded_by", "status_verifikasi", "link_file", "storage_path"
             ] if c in docs.columns]
             st.dataframe(docs[show_cols], use_container_width=True, hide_index=True)
@@ -1666,11 +1559,6 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if "invoice_type" not in inv.columns:
             inv["invoice_type"] = "Manual"
         inv["invoice_type"] = inv["invoice_type"].replace("", "Manual")
-        inv["student_display"] = inv.apply(
-            lambda r: student_label_from_values(r.get("student_id"), r.get("nama_mahasiswa")),
-            axis=1,
-        )
-        inv["invoice_display"] = inv.apply(lambda r: invoice_label(r.to_dict()), axis=1)
 
     with tabs[0]:
         if inv.empty:
@@ -1718,13 +1606,6 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
             st.markdown("### Ringkasan keuangan per mahasiswa")
             finance_df = group_student_finance(inv)
             show_finance = finance_df.copy()
-            if not show_finance.empty:
-                show_finance["student_display"] = show_finance.apply(
-                    lambda r: student_label_from_values(r.get("student_id"), r.get("nama_mahasiswa")),
-                    axis=1,
-                )
-                first_cols = ["student_display", "total_invoice", "total_tagihan", "total_dibayar", "total_outstanding", "status_keuangan"]
-                show_finance = show_finance[[c for c in first_cols if c in show_finance.columns]]
             for col in ["total_tagihan", "total_dibayar", "total_outstanding"]:
                 if col in show_finance.columns:
                     show_finance[col] = show_finance[col].apply(format_currency)
@@ -1738,7 +1619,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 filtered_inv = filtered_inv[filtered_inv["invoice_type"] == selected_type]
 
             show_cols = [c for c in [
-                "invoice_display", "invoice_type", "student_display", "nama_mahasiswa", "tanggal_invoice", "program",
+                "kode_invoice", "invoice_type", "student_id", "nama_mahasiswa", "tanggal_invoice", "program",
                 "harga_program", "sudah_dibayar", "sisa_tagihan", "status_pelunasan", "status_pengiriman"
             ] if c in filtered_inv.columns]
             show_df = filtered_inv[show_cols].copy()
@@ -1750,45 +1631,16 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
             if not payments_df.empty:
                 st.markdown("### Log pembayaran")
                 pay = payments_df.copy()
-
-                student_name_lookup = {}
-                if not students_df.empty and {"student_id", "nama_lengkap"}.issubset(students_df.columns):
-                    student_name_lookup = dict(
-                        zip(students_df["student_id"].astype(str), students_df["nama_lengkap"].astype(str))
-                    )
-
-                invoice_label_lookup = {}
-                if not inv.empty and "invoice_id" in inv.columns:
-                    invoice_label_lookup = {
-                        safe_text(row.get("invoice_id")): invoice_label(row.to_dict())
-                        for _, row in inv.iterrows()
-                    }
-
-                if "student_id" in pay.columns:
-                    pay["student_display"] = pay["student_id"].apply(
-                        lambda sid: student_label_from_values(sid, student_name_lookup.get(safe_text(sid), ""))
-                    )
-                if "invoice_id" in pay.columns:
-                    pay["invoice_display"] = pay["invoice_id"].apply(
-                        lambda iid: invoice_label_lookup.get(safe_text(iid), safe_text(iid))
-                    )
                 if "jumlah_pembayaran" in pay.columns:
                     pay["jumlah_pembayaran"] = pay["jumlah_pembayaran"].apply(format_currency)
-
-                preferred_cols = [
-                    "invoice_display", "student_display", "tanggal_pembayaran", "jumlah_pembayaran",
-                    "metode_pembayaran", "dicatat_oleh", "catatan", "bukti_pembayaran_link"
-                ]
-                pay_show = pay[[c for c in preferred_cols if c in pay.columns]] if any(c in pay.columns for c in preferred_cols) else pay
-                st.dataframe(pay_show, use_container_width=True, hide_index=True)
+                st.dataframe(pay, use_container_width=True, hide_index=True)
 
     with tabs[1]:
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_options, student_map = student_options_from_df(students_df)
-            selected_student_label = st.selectbox("Pilih mahasiswa untuk paket invoice", student_options, key="invoice_package_student_id")
-            selected_student_id = student_map[selected_student_label]
+            student_ids = students_df["student_id"].astype(str).tolist()
+            selected_student_id = st.selectbox("Pilih mahasiswa untuk paket invoice", student_ids, key="invoice_package_student_id")
             student = find_student(students_df, selected_student_id)
             package = calculate_invoice_package(student)
 
@@ -1833,11 +1685,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                     )
                     if result.get("ok"):
                         created = result.get("created_invoices", [])
-                        codes = ", ".join([
-                            invoice_label_from_values(x.get("kode_invoice"), student.get("nama_lengkap"), x.get("invoice_type"))
-                            for x in created
-                            if safe_text(x.get("kode_invoice"))
-                        ])
+                        codes = ", ".join([safe_text(x.get("kode_invoice")) for x in created if safe_text(x.get("kode_invoice"))])
                         st.success(f"Paket invoice berhasil dibuat. {codes}")
                         clear_cache_and_rerun()
                     else:
@@ -1847,9 +1695,8 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_options, student_map = student_options_from_df(students_df)
-            selected_student_label = st.selectbox("Pilih mahasiswa untuk invoice manual", student_options, key="manual_invoice_student_id")
-            selected_student_id = student_map[selected_student_label]
+            student_ids = students_df["student_id"].astype(str).tolist()
+            selected_student_id = st.selectbox("Pilih mahasiswa untuk invoice manual", student_ids, key="manual_invoice_student_id")
             student = find_student(students_df, selected_student_id)
             with st.form("form_create_invoice"):
                 c1, c2, c3 = st.columns(3)
@@ -1910,10 +1757,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                         },
                     )
                     if result.get("ok"):
-                        st.success(
-                            f"Invoice berhasil dibuat: "
-                            f"{invoice_label_from_values(result.get('kode_invoice'), student.get('nama_lengkap'), invoice_type)}"
-                        )
+                        st.success(f"Invoice berhasil dibuat: {result.get('kode_invoice')}")
                         clear_cache_and_rerun()
                     else:
                         st.error(result.get("error", "Gagal membuat invoice"))
@@ -1922,12 +1766,12 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if inv.empty:
             st.info("Belum ada invoice.")
         else:
-            invoice_options = {
-                invoice_label(row.to_dict()): safe_text(row.get("invoice_id"))
+            invoice_options = [
+                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
                 for _, row in inv.iterrows()
-            }
-            selected_label = st.selectbox("Pilih invoice", list(invoice_options.keys()), key="payment_invoice_label")
-            selected_invoice_id = invoice_options[selected_label]
+            ]
+            selected_label = st.selectbox("Pilih invoice", invoice_options, key="payment_invoice_label")
+            selected_invoice_id = selected_label.split("|")[0].strip()
             invoice_row = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
             with st.form("form_record_payment"):
                 c1, c2, c3 = st.columns(3)
@@ -1961,12 +1805,12 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if inv.empty:
             st.info("Belum ada invoice.")
         else:
-            invoice_options = {
-                invoice_label(row.to_dict()): safe_text(row.get("invoice_id"))
+            invoice_options = [
+                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
                 for _, row in inv.iterrows()
-            }
-            selected_label = st.selectbox("Pilih invoice styled", list(invoice_options.keys()), key="styled_invoice_label")
-            selected_invoice_id = invoice_options[selected_label]
+            ]
+            selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
+            selected_invoice_id = selected_label.split("|")[0].strip()
             invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
             student = find_student(students_df, safe_text(invoice.get("student_id")))
 
@@ -1983,10 +1827,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 st.download_button(
                     "Download PDF Invoice",
                     data=pdf_bytes,
-                    file_name=invoice_file_name(
-                        invoice.get("kode_invoice") or invoice.get("invoice_id"),
-                        invoice.get("nama_mahasiswa") or student.get("nama_lengkap"),
-                    ),
+                    file_name=f"{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
                 )
@@ -2021,10 +1862,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
 
             with right:
                 st.markdown("### Informasi Invoice")
-                st.write(
-                    f"**Kode Invoice saat ini:** "
-                    f"{invoice_label_from_values(invoice.get('kode_invoice'), invoice.get('nama_mahasiswa'), invoice.get('invoice_type'))}"
-                )
+                st.write(f"**Kode Invoice saat ini:** {safe_text(invoice.get('kode_invoice'))}")
                 if expected_code:
                     st.write(f"**Format kode yang Anda mau:** {expected_code}")
                 st.write(f"**Jenis Invoice:** {safe_text(invoice.get('invoice_type'))}")
