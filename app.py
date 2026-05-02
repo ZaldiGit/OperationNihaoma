@@ -1807,8 +1807,13 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_ids = students_df["student_id"].astype(str).tolist()
-            selected_student_id = st.selectbox("Pilih mahasiswa untuk invoice manual", student_ids, key="manual_invoice_student_id")
+            student_options, student_map = build_student_options(students_df)
+            selected_student_label = st.selectbox(
+                "Pilih mahasiswa untuk invoice manual",
+                student_options,
+                key="manual_invoice_student_id"
+            )
+            selected_student_id = student_map[selected_student_label]
             student = find_student(students_df, selected_student_id)
             with st.form("form_create_invoice"):
                 c1, c2, c3 = st.columns(3)
@@ -1878,12 +1883,9 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if inv.empty:
             st.info("Belum ada invoice.")
         else:
-            invoice_options = [
-                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
-                for _, row in inv.iterrows()
-            ]
+            invoice_options, invoice_map = build_invoice_options(inv)
             selected_label = st.selectbox("Pilih invoice", invoice_options, key="payment_invoice_label")
-            selected_invoice_id = selected_label.split("|")[0].strip()
+            selected_invoice_id = invoice_map[selected_label]
             invoice_row = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
             with st.form("form_record_payment"):
                 c1, c2, c3 = st.columns(3)
@@ -1917,12 +1919,9 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if inv.empty:
             st.info("Belum ada invoice.")
         else:
-            invoice_options = [
-                f"{safe_text(row.get('invoice_id'))} | {safe_text(row.get('kode_invoice'))} | {safe_text(row.get('invoice_type'))} | {safe_text(row.get('nama_mahasiswa'))}"
-                for _, row in inv.iterrows()
-            ]
+            invoice_options, invoice_map = build_invoice_options(inv)
             selected_label = st.selectbox("Pilih invoice styled", invoice_options, key="styled_invoice_label")
-            selected_invoice_id = selected_label.split("|")[0].strip()
+            selected_invoice_id = invoice_map[selected_label]
             invoice = inv[inv["invoice_id"].astype(str) == selected_invoice_id].iloc[0].to_dict()
             student = find_student(students_df, safe_text(invoice.get("student_id")))
 
@@ -1939,7 +1938,10 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 st.download_button(
                     "Download PDF Invoice",
                     data=pdf_bytes,
-                    file_name=f"{safe_text(invoice.get('kode_invoice') or invoice.get('invoice_id'))}.pdf",
+                    file_name=invoice_pdf_filename(
+                        safe_text(invoice.get("kode_invoice") or invoice.get("invoice_id")),
+                        safe_text(invoice.get("nama_mahasiswa") or student.get("nama_lengkap")),
+                    ),
                     mime="application/pdf",
                     use_container_width=True,
                 )
