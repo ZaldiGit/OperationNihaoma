@@ -1278,11 +1278,11 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             st.caption(f"Total data tampil: {len(filtered)}")
 
-           student_options, student_map = build_student_options(filtered)
+            student_options, student_map = build_student_options(filtered)
 
-                if student_options:
-                    selected_label = st.selectbox("Pilih mahasiswa untuk aksi", student_options, key="student_action_id")
-                    selected_id = student_map[selected_label]
+            if student_options:
+                selected_label = st.selectbox("Pilih mahasiswa untuk aksi", student_options, key="student_action_id")
+                selected_id = student_map[selected_label]
                 action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
                 if action_col1.button("Edit data", use_container_width=True):
                     st.session_state["edit_student_id"] = selected_id
