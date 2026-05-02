@@ -269,7 +269,7 @@ def upload_invoice_pdf_to_drive(
             "nama_mahasiswa": nama_mahasiswa,
             "kode_invoice": kode_invoice,
             "mime_type": "application/pdf",
-            "nama_file": f"{kode_invoice}.pdf",
+            "nama_file": invoice_pdf_filename(kode_invoice, nama_mahasiswa),
             "file_base64": file_base64,
         },
     )
@@ -1278,9 +1278,11 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             st.caption(f"Total data tampil: {len(filtered)}")
 
-            student_options = filtered["student_id"].astype(str).tolist() if "student_id" in filtered.columns else []
+           student_options, student_map = build_student_options(filtered)
+
             if student_options:
-                selected_id = st.selectbox("Pilih student_id untuk aksi", student_options, key="student_action_id")
+                selected_label = st.selectbox("Pilih mahasiswa untuk aksi", student_options, key="student_action_id")
+                selected_id = student_map[selected_label]
                 action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
                 if action_col1.button("Edit data", use_container_width=True):
                     st.session_state["edit_student_id"] = selected_id
