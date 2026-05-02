@@ -1746,8 +1746,13 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
         if students_df.empty:
             st.info("Belum ada data mahasiswa.")
         else:
-            student_ids = students_df["student_id"].astype(str).tolist()
-            selected_student_id = st.selectbox("Pilih mahasiswa untuk paket invoice", student_ids, key="invoice_package_student_id")
+            student_options, student_map = build_student_options(students_df)
+            selected_student_label = st.selectbox(
+                "Pilih mahasiswa untuk paket invoice",
+                student_options,
+                key="invoice_package_student_id"
+            )
+            selected_student_id = student_map[selected_student_label]
             student = find_student(students_df, selected_student_id)
             package = calculate_invoice_package(student)
 
