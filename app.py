@@ -2019,6 +2019,47 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                 st.write(f"**Sudah Dibayar:** {format_currency(invoice.get('sudah_dibayar'))}")
                 st.write(f"**Sisa Tagihan:** {format_currency(invoice.get('sisa_tagihan'))}")
                 st.write(f"**Status Pelunasan:** {safe_text(invoice.get('status_pelunasan'))}")
+                st.divider()
+                st.markdown("### Hapus Invoice")
+                st.warning(
+                    "Aksi ini akan menghapus data invoice yang dipilih dari Google Sheet. "
+                    "Log pembayaran yang terkait invoice ini juga akan dihapus."
+                )
+
+                confirm_delete_invoice = st.text_input(
+                    f"Ketik invoice_id berikut untuk konfirmasi: {selected_invoice_id}",
+                    key=f"confirm_delete_invoice_{selected_invoice_id}",
+                )
+
+                if st.button(
+                    "Hapus invoice ini",
+                    type="primary",
+                    use_container_width=True,
+                    key=f"delete_invoice_btn_{selected_invoice_id}",
+                ):
+                    if confirm_delete_invoice.strip() != selected_invoice_id:
+                        st.error("Konfirmasi tidak cocok. Invoice belum dihapus.")
+                    else:
+                        result = api_post(
+                            "delete_invoice",
+                            {
+                                "invoice_id": selected_invoice_id,
+                            },
+                        )
+
+                        if result.get("ok"):
+                            st.success(
+                                f"Invoice berhasil dihapus: "
+                                f"{safe_text(result.get('kode_invoice'))} "
+                                f"({safe_text(result.get('invoice_type'))})"
+                            )
+
+                        if result.get("deleted_payments"):
+                            st.info(f"Log pembayaran terkait yang ikut dihapus: {result.get('deleted_payments')}")
+
+                    clear_cache_and_rerun()
+                else:
+                    st.error(result.get("error", "Gagal menghapus invoice"))
 
 
 # ---------- SOP ----------
