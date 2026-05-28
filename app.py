@@ -505,13 +505,23 @@ def get_registration_fee(program: Any) -> float:
     return 2_000_000.0 if "program bahasa" in name else 3_000_000.0
 
 
+def get_program_total_fee(program: Any, fallback_value: Any = 0) -> float:
+    name = normalize_program_name(program).replace(" ", "")
+
+    # Harga khusus program S1-S3
+    if "s1-s3" in name or "s1s3" in name:
+        return 28_800_000.0
+
+    return to_number(fallback_value)
+
+
 def get_transport_fee() -> float:
     return 4_000_000.0
 
 
 def calculate_invoice_package(student: Dict[str, Any]) -> Dict[str, Any]:
     program = safe_text(student.get("program_diminati"))
-    base_program_fee = to_number(student.get("estimasi_biaya"))
+    base_program_fee = get_program_total_fee(program, student.get("estimasi_biaya"))
     registration_fee = get_registration_fee(program)
 
     # Transport sudah dianggap termasuk di estimasi_biaya,
