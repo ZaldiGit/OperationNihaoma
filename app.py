@@ -508,6 +508,10 @@ def get_registration_fee(program: Any) -> float:
 def get_program_total_fee(program: Any, fallback_value: Any = 0) -> float:
     name = normalize_program_name(program).replace(" ", "")
 
+    # Harga khusus Program Bahasa
+    if "programbahasa" in name:
+        return 17_000_000.0
+
     # Harga khusus program S1-S3
     if "s1-s3" in name or "s1s3" in name:
         return 28_800_000.0
