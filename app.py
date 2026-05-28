@@ -258,6 +258,7 @@ def upload_invoice_pdf_to_drive(
     student_id: str,
     nama_mahasiswa: str,
     kode_invoice: str,
+    invoice_type: str,
     pdf_bytes: bytes,
 ) -> Dict[str, Any]:
     file_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
@@ -268,8 +269,9 @@ def upload_invoice_pdf_to_drive(
             "student_id": student_id,
             "nama_mahasiswa": nama_mahasiswa,
             "kode_invoice": kode_invoice,
+            "invoice_type": invoice_type,
             "mime_type": "application/pdf",
-            "nama_file": invoice_pdf_filename(kode_invoice, nama_mahasiswa),
+            "nama_file": invoice_pdf_filename(kode_invoice, nama_mahasiswa, invoice_type),
             "file_base64": file_base64,
         },
     )
@@ -406,10 +408,24 @@ def build_invoice_options(inv_df: pd.DataFrame) -> tuple[List[str], Dict[str, st
     return labels, mapping
 
 
-def invoice_pdf_filename(kode_invoice: Any, nama_mahasiswa: Any) -> str:
-    code = clean_filename_part(kode_invoice)
-    name = clean_filename_part(nama_mahasiswa)
-    return f"{code}-{name}.pdf"
+def invoice_pdf_filename(kode_invoice: Any, nama_mahasiswa: Any, invoice_type: Any = "") -> str:
+    parts = []
+
+    code = safe_text(kode_invoice).strip()
+    name = safe_text(nama_mahasiswa).strip()
+    inv_type = safe_text(invoice_type).strip()
+
+    if code:
+        parts.append(clean_filename_part(code))
+    if name:
+        parts.append(clean_filename_part(name))
+    if inv_type:
+        parts.append(clean_filename_part(inv_type))
+
+    if not parts:
+        return "Invoice.pdf"
+
+    return "-".join(parts) + ".pdf"
 
 
 def document_filename(student_id: Any, nama_mahasiswa: Any, jenis_dokumen: Any, original_name: str) -> str:
@@ -1946,6 +1962,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                     file_name=invoice_pdf_filename(
                         safe_text(invoice.get("kode_invoice") or invoice.get("invoice_id")),
                         safe_text(invoice.get("nama_mahasiswa") or student.get("nama_lengkap")),
+                        safe_text(invoice.get("invoice_type") or "Invoice"),
                     ),
                     mime="application/pdf",
                     use_container_width=True,
@@ -1958,6 +1975,7 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                             student_id=safe_text(invoice.get("student_id")),
                             nama_mahasiswa=safe_text(invoice.get("nama_mahasiswa") or student.get("nama_lengkap")),
                             kode_invoice=safe_text(invoice.get("kode_invoice") or invoice.get("invoice_id")),
+                            invoice_type=safe_text(invoice.get("invoice_type") or "Invoice"),
                             pdf_bytes=pdf_bytes,
                         )
                     except Exception as exc:
