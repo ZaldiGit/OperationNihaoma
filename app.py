@@ -2057,13 +2057,13 @@ def render_invoice_module(students_df: pd.DataFrame, invoices_df: pd.DataFrame, 
                                     f"({safe_text(result.get('invoice_type'))})"
                                 )
 
-                            deleted_payments = result.get("deleted_payments", 0)
-                            if deleted_payments:
-                                st.info(f"Log pembayaran terkait yang ikut dihapus: {deleted_payments}")
+                                deleted_payments = result.get("deleted_payments", 0)
+                                if deleted_payments:
+                                    st.info(f"Log pembayaran terkait yang ikut dihapus: {deleted_payments}")
 
-                            clear_cache_and_rerun()
-                        else:
-                            st.error(result.get("error", "Gagal menghapus invoice"))
+                                clear_cache_and_rerun()
+                            else:
+                                st.error(result.get("error", "Gagal menghapus invoice"))
 
 # ---------- SOP ----------
 def render_help_module() -> None:
