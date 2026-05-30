@@ -1304,6 +1304,17 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
             ]
             display_df = filtered[display_columns].copy() if display_columns else filtered.copy()
             if "estimasi_biaya" in display_df.columns:
+                if "program_diminati" in display_df.columns:
+                    display_df["estimasi_biaya"] = display_df.apply(
+                        lambda row: format_currency(
+                            get_program_total_fee(
+                                row.get("program_diminati"),
+                                row.get("estimasi_biaya")
+                            )
+                        ),
+                        axis=1
+                    )
+            else:
                 display_df["estimasi_biaya"] = display_df["estimasi_biaya"].apply(format_currency)
             st.dataframe(display_df, use_container_width=True, hide_index=True)
             st.caption(f"Total data tampil: {len(filtered)}")
