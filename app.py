@@ -1089,6 +1089,522 @@ def style_bar_chart(fig, title: str):
     )
     return fig
 
+# ---------- Student Tracking ----------
+TRACKING_STATUS_DEFAULT = [
+    "Belum Mulai",
+    "On Progress",
+    "Submitted",
+    "Waiting Review",
+    "Interview",
+    "LOA Issued",
+    "Scholarship Result",
+    "Visa Process",
+    "Ready to Depart",
+    "Done",
+    "Rejected",
+    "Revoked",
+    "Withdraw",
+]
+TRACKING_SUBMIT_DEFAULT = ["", "No", "Yes", "Re-submit", "Pending"]
+TRACKING_INTERVIEW_DEFAULT = ["", "Not Required", "Pending", "Scheduled", "Done", "Failed"]
+TRACKING_LOA_DEFAULT = ["", "Pending", "Issued", "Rejected", "Not Required"]
+TRACKING_SCHOLARSHIP_DEFAULT = ["", "Pending", "Waiting Result", "Approved", "Rejected", "Not Applied", "Not Available"]
+TRACKING_VISA_DEFAULT = ["", "Not Started", "Preparing", "Submitted", "Approved", "Rejected"]
+TRACKING_PRIORITY_DEFAULT = ["Rendah", "Sedang", "Tinggi", "Urgent"]
+
+
+def tracking_ref_options(refs: Dict[str, Any], key: str, default_options: List[str], current_value: Any = "") -> List[str]:
+    return ensure_option_list(refs.get(key, default_options), current_value or (default_options[0] if default_options else ""))
+
+
+def normalize_tracking_progress(value: Any) -> float:
+    raw = to_number(value)
+    if raw <= 0:
+        return 0.0
+    if raw <= 1:
+        raw *= 100
+    return max(0.0, min(float(raw), 100.0))
+
+
+def calculate_tracking_progress(row: Dict[str, Any]) -> float:
+    explicit_score = normalize_tracking_progress(row.get("progress_score"))
+    if explicit_score > 0:
+        return explicit_score
+
+    status = safe_text(row.get("status_pendaftaran")).strip().lower()
+    if status in ["done", "ready to depart"]:
+        return 100.0
+    if status in ["rejected", "revoked", "withdraw", "tidak lolos"]:
+        return 0.0
+
+    score = 0.0
+    submit = safe_text(row.get("sudah_submit")).strip().lower()
+    interview = safe_text(row.get("interview")).strip().lower()
+    loa = safe_text(row.get("loa")).strip().lower()
+    scholarship = safe_text(row.get("scholarship")).strip().lower()
+    visa = safe_text(row.get("visa")).strip().lower()
+
+    if status in ["on progress", "waiting review", "interview", "loa issued", "scholarship result", "visa process"]:
+        score = max(score, 10.0)
+    if submit in ["yes", "re-submit", "submitted"]:
+        score = max(score, 25.0)
+    if interview in ["scheduled", "done", "not required"]:
+        score = max(score, 40.0)
+    if loa in ["issued", "yes", "received"]:
+        score = max(score, 65.0)
+    if scholarship in ["approved", "rejected", "not applied", "not available"]:
+        score = max(score, 78.0)
+    if visa in ["submitted", "approved"]:
+        score = max(score, 90.0 if visa == "submitted" else 100.0)
+    return max(0.0, min(score, 100.0))
+
+
+def tracking_stage(row: Dict[str, Any]) -> str:
+    status = safe_text(row.get("status_pendaftaran")).strip()
+    if status:
+        return status
+    progress = calculate_tracking_progress(row)
+    if progress >= 100:
+        return "Done"
+    if progress >= 90:
+        return "Visa Process"
+    if progress >= 78:
+        return "Scholarship Result"
+    if progress >= 65:
+        return "LOA Issued"
+    if progress >= 40:
+        return "Interview"
+    if progress >= 25:
+        return "Submitted"
+    if progress > 0:
+        return "On Progress"
+    return "Belum Mulai"
+
+
+def prepare_tracking_df(tracking_df: pd.DataFrame) -> pd.DataFrame:
+    if tracking_df.empty:
+        return tracking_df.copy()
+    df = tracking_df.copy()
+    for col in [
+        "tracking_id", "student_id", "nama_siswa", "program", "universitas", "negara_kota", "jurusan",
+        "status_pendaftaran", "sudah_submit", "interview", "loa", "scholarship", "visa", "web_pendaftaran",
+        "portal_username", "portal_password", "deadline", "pic", "prioritas", "next_action", "catatan", "updated_at", "updated_by",
+    ]:
+        if col not in df.columns:
+            df[col] = ""
+    df["progress_percent"] = df.apply(lambda r: calculate_tracking_progress(r.to_dict()), axis=1)
+    df["stage"] = df.apply(lambda r: tracking_stage(r.to_dict()), axis=1)
+    return df
+
+
+def build_tracking_options(tracking_df: pd.DataFrame) -> tuple[List[str], Dict[str, str]]:
+    labels = []
+    mapping = {}
+    if tracking_df.empty:
+        return labels, mapping
+    for _, row in tracking_df.iterrows():
+        tracking_id = safe_text(row.get("tracking_id"))
+        label_parts = [
+            tracking_id or "NO-ID",
+            safe_text(row.get("nama_siswa")),
+            safe_text(row.get("universitas")),
+            safe_text(row.get("program")),
+        ]
+        label = " - ".join([part for part in label_parts if part])
+        labels.append(label)
+        mapping[label] = tracking_id
+    return labels, mapping
+
+
+def find_tracking(tracking_df: pd.DataFrame, tracking_id: str) -> Dict[str, Any]:
+    if tracking_df.empty or "tracking_id" not in tracking_df.columns:
+        return {}
+    row_df = tracking_df[tracking_df["tracking_id"].astype(str) == str(tracking_id)]
+    return row_df.iloc[0].to_dict() if not row_df.empty else {}
+
+
+def filter_tracking_df(tracking_df: pd.DataFrame, keyword: str, program: str, universitas: str, status: str, pic: str) -> pd.DataFrame:
+    df = prepare_tracking_df(tracking_df)
+    if df.empty:
+        return df
+    if keyword:
+        kw = keyword.lower().strip()
+        mask = pd.Series(False, index=df.index)
+        for col in ["tracking_id", "student_id", "nama_siswa", "universitas", "jurusan", "pic", "portal_username"]:
+            if col in df.columns:
+                mask = mask | df[col].astype(str).str.lower().str.contains(kw, na=False)
+        df = df[mask]
+    if program != "Semua" and "program" in df.columns:
+        df = df[df["program"].astype(str) == program]
+    if universitas != "Semua" and "universitas" in df.columns:
+        df = df[df["universitas"].astype(str) == universitas]
+    if status != "Semua" and "stage" in df.columns:
+        df = df[df["stage"].astype(str) == status]
+    if pic != "Semua" and "pic" in df.columns:
+        df = df[df["pic"].astype(str) == pic]
+    return df
+
+
+def render_progress_badge(progress: float, label: str = "") -> None:
+    pct = int(max(0, min(progress, 100)))
+    caption = f"{pct}%" + (f" • {label}" if label else "")
+    st.progress(pct / 100)
+    st.caption(caption)
+
+
+def tracking_payload_from_form(
+    current: Dict[str, Any],
+    selected_student: Dict[str, Any],
+    form_values: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "tracking_id": safe_text(current.get("tracking_id")),
+        "student_id": safe_text(form_values.get("student_id") or selected_student.get("student_id") or current.get("student_id")),
+        "nama_siswa": safe_text(form_values.get("nama_siswa") or selected_student.get("nama_lengkap") or current.get("nama_siswa")),
+        "program": safe_text(form_values.get("program") or selected_student.get("program_diminati") or current.get("program")),
+        "universitas": safe_text(form_values.get("universitas")),
+        "negara_kota": safe_text(form_values.get("negara_kota")),
+        "jurusan": safe_text(form_values.get("jurusan")),
+        "status_pendaftaran": safe_text(form_values.get("status_pendaftaran")),
+        "sudah_submit": safe_text(form_values.get("sudah_submit")),
+        "interview": safe_text(form_values.get("interview")),
+        "loa": safe_text(form_values.get("loa")),
+        "scholarship": safe_text(form_values.get("scholarship")),
+        "visa": safe_text(form_values.get("visa")),
+        "web_pendaftaran": safe_text(form_values.get("web_pendaftaran")),
+        "portal_username": safe_text(form_values.get("portal_username")),
+        "portal_password": safe_text(form_values.get("portal_password")),
+        "deadline": safe_text(form_values.get("deadline")),
+        "pic": safe_text(form_values.get("pic")),
+        "prioritas": safe_text(form_values.get("prioritas")),
+        "next_action": safe_text(form_values.get("next_action")),
+        "catatan": safe_text(form_values.get("catatan")),
+        "progress_score": float(form_values.get("progress_score") or 0),
+        "updated_by": safe_text(form_values.get("updated_by") or form_values.get("pic") or "Admin"),
+    }
+
+
+def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.DataFrame, refs: Dict[str, Any]) -> None:
+    st.subheader("Student Tracking")
+    st.caption("Pantau progres pendaftaran per mahasiswa, per universitas, termasuk portal pendaftaran, username, dan password.")
+
+    tracking = prepare_tracking_df(tracking_df)
+    tabs = st.tabs(["Overview", "Daftar Tracking", "Tambah / Edit", "Update Progress", "Portal & Akun"])
+
+    with tabs[0]:
+        if tracking.empty:
+            st.info("Belum ada data student tracking. Tambahkan data pertama di tab Tambah / Edit.")
+        else:
+            c1, c2, c3, c4, c5 = st.columns(5)
+            c1.metric("Total Aplikasi", len(tracking))
+            c2.metric("Unique Student", tracking["student_id"].replace("", pd.NA).dropna().nunique() or tracking["nama_siswa"].nunique())
+            c3.metric("Avg Progress", f"{tracking['progress_percent'].mean():.0f}%")
+            c4.metric("Submitted", int(tracking["sudah_submit"].astype(str).str.lower().isin(["yes", "re-submit", "submitted"]).sum()))
+            c5.metric("LOA Issued", int(tracking["loa"].astype(str).str.lower().isin(["issued", "yes", "received"]).sum()))
+
+            left, right = st.columns(2)
+            with left:
+                status_df = tracking.groupby("stage", dropna=False).size().reset_index(name="jumlah").sort_values("jumlah", ascending=False)
+                fig_stage = px.pie(status_df, names="stage", values="jumlah", color_discrete_sequence=ORANGE_COLORS)
+                fig_stage = style_pie_chart(fig_stage, "Distribusi Progress Student", hole=0.46)
+                st.plotly_chart(fig_stage, use_container_width=True, config={"displayModeBar": False})
+            with right:
+                uni_df = (
+                    tracking.groupby("universitas", dropna=False)["progress_percent"]
+                    .mean()
+                    .reset_index()
+                    .replace("", "Belum Diisi")
+                    .sort_values("progress_percent", ascending=False)
+                    .head(12)
+                )
+                fig_uni = px.bar(
+                    uni_df,
+                    x="universitas",
+                    y="progress_percent",
+                    color="progress_percent",
+                    color_continuous_scale=[
+                        [0.00, "#FED7AA"],
+                        [0.35, "#FDBA74"],
+                        [0.70, "#F97316"],
+                        [1.00, "#C2410C"],
+                    ],
+                )
+                fig_uni = style_bar_chart(fig_uni, "Rata-rata Progress per Universitas")
+                fig_uni.update_traces(texttemplate="%{y:.0f}%")
+                st.plotly_chart(fig_uni, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown("### Priority Follow-up")
+            follow_cols = ["nama_siswa", "program", "universitas", "stage", "progress_percent", "deadline", "pic", "prioritas", "next_action", "catatan"]
+            follow_df = tracking[follow_cols].copy()
+            follow_df = follow_df.sort_values(["prioritas", "deadline", "progress_percent"], ascending=[False, True, True]).head(20)
+            follow_df["progress_percent"] = follow_df["progress_percent"].apply(lambda x: f"{x:.0f}%")
+            st.dataframe(follow_df, use_container_width=True, hide_index=True)
+
+    with tabs[1]:
+        if tracking.empty:
+            st.info("Belum ada data tracking.")
+        else:
+            f1, f2, f3, f4, f5 = st.columns([2, 1.2, 1.5, 1.2, 1.2])
+            keyword = f1.text_input("Cari", placeholder="Nama, universitas, jurusan, username, PIC")
+            program_options = sorted([x for x in tracking["program"].dropna().astype(str).unique().tolist() if x])
+            uni_options = sorted([x for x in tracking["universitas"].dropna().astype(str).unique().tolist() if x])
+            stage_options = sorted([x for x in tracking["stage"].dropna().astype(str).unique().tolist() if x])
+            pic_options = sorted([x for x in tracking["pic"].dropna().astype(str).unique().tolist() if x])
+            selected_program = f2.selectbox("Program", ["Semua"] + program_options)
+            selected_uni = f3.selectbox("Universitas", ["Semua"] + uni_options)
+            selected_stage = f4.selectbox("Status", ["Semua"] + stage_options)
+            selected_pic = f5.selectbox("PIC", ["Semua"] + pic_options)
+
+            filtered = filter_tracking_df(tracking, keyword, selected_program, selected_uni, selected_stage, selected_pic)
+            show_password = st.toggle("Tampilkan password portal", value=False)
+            show_cols = [
+                "tracking_id", "student_id", "nama_siswa", "program", "universitas", "jurusan",
+                "stage", "progress_percent", "sudah_submit", "interview", "loa", "scholarship", "visa",
+                "web_pendaftaran", "portal_username", "portal_password", "deadline", "pic", "prioritas", "next_action", "updated_at",
+            ]
+            display = filtered[[c for c in show_cols if c in filtered.columns]].copy()
+            if "progress_percent" in display.columns:
+                display["progress_percent"] = display["progress_percent"].apply(lambda x: f"{x:.0f}%")
+            if "portal_password" in display.columns and not show_password:
+                display["portal_password"] = display["portal_password"].apply(lambda x: "••••••" if safe_text(x) else "")
+            st.dataframe(display, use_container_width=True, hide_index=True)
+            st.caption(f"Total data tampil: {len(filtered)}")
+
+    with tabs[2]:
+        mode = st.radio("Mode", ["Tambah tracking baru", "Edit tracking existing"], horizontal=True)
+        current: Dict[str, Any] = {}
+        if mode == "Edit tracking existing":
+            options, mapping = build_tracking_options(tracking)
+            if not options:
+                st.info("Belum ada data untuk diedit.")
+                st.stop()
+            selected_label = st.selectbox("Pilih data tracking", options, key="edit_tracking_select")
+            current = find_tracking(tracking, mapping[selected_label])
+
+        student_labels, student_map = build_student_options(students_df)
+        default_student_index = 0
+        if current.get("student_id"):
+            for i, label in enumerate([""] + student_labels):
+                if label and student_map.get(label) == safe_text(current.get("student_id")):
+                    default_student_index = i
+                    break
+
+        selected_student_label = st.selectbox(
+            "Hubungkan ke data Calon Mahasiswa",
+            [""] + student_labels,
+            index=default_student_index,
+            key="tracking_student_picker",
+        )
+        selected_student = find_student(students_df, student_map.get(selected_student_label, "")) if selected_student_label else {}
+
+        with st.form("form_upsert_student_tracking"):
+            st.markdown("### Identitas & Tujuan")
+            col1, col2, col3 = st.columns(3)
+            student_id = col1.text_input("Student ID", value=safe_text(selected_student.get("student_id") or current.get("student_id")))
+            nama_siswa = col2.text_input("Nama Siswa", value=safe_text(selected_student.get("nama_lengkap") or current.get("nama_siswa")))
+            program_options = tracking_ref_options(refs, "program_diminati", refs.get("program", []), current.get("program") or selected_student.get("program_diminati"))
+            program = col3.selectbox("Program", program_options, index=option_index(program_options, current.get("program") or selected_student.get("program_diminati")))
+
+            col4, col5, col6 = st.columns(3)
+            universitas = col4.text_input("Universitas", value=safe_text(current.get("universitas") or selected_student.get("kampus_tujuan")))
+            negara_kota = col5.text_input("Negara / Kota", value=safe_text(current.get("negara_kota") or selected_student.get("kota_tujuan")))
+            jurusan = col6.text_input("Jurusan", value=safe_text(current.get("jurusan")))
+
+            st.markdown("### Progress Pendaftaran")
+            col7, col8, col9 = st.columns(3)
+            status_options = tracking_ref_options(refs, "tracking_status", TRACKING_STATUS_DEFAULT, current.get("status_pendaftaran"))
+            status_pendaftaran = col7.selectbox("Status Pendaftaran", status_options, index=option_index(status_options, current.get("status_pendaftaran")))
+            submit_options = tracking_ref_options(refs, "submit_status", TRACKING_SUBMIT_DEFAULT, current.get("sudah_submit"))
+            sudah_submit = col8.selectbox("Sudah Submit?", submit_options, index=option_index(submit_options, current.get("sudah_submit")))
+            interview_options = tracking_ref_options(refs, "interview_status", TRACKING_INTERVIEW_DEFAULT, current.get("interview"))
+            interview = col9.selectbox("Interview", interview_options, index=option_index(interview_options, current.get("interview")))
+
+            col10, col11, col12 = st.columns(3)
+            loa_options = tracking_ref_options(refs, "loa_status", TRACKING_LOA_DEFAULT, current.get("loa"))
+            loa = col10.selectbox("LOA", loa_options, index=option_index(loa_options, current.get("loa")))
+            scholarship_options = tracking_ref_options(refs, "scholarship_status", TRACKING_SCHOLARSHIP_DEFAULT, current.get("scholarship"))
+            scholarship = col11.selectbox("Scholarship", scholarship_options, index=option_index(scholarship_options, current.get("scholarship")))
+            visa_options = tracking_ref_options(refs, "visa_status", TRACKING_VISA_DEFAULT, current.get("visa"))
+            visa = col12.selectbox("Visa", visa_options, index=option_index(visa_options, current.get("visa")))
+
+            draft_for_score = {
+                "progress_score": current.get("progress_score"),
+                "status_pendaftaran": status_pendaftaran,
+                "sudah_submit": sudah_submit,
+                "interview": interview,
+                "loa": loa,
+                "scholarship": scholarship,
+                "visa": visa,
+            }
+            default_progress = calculate_tracking_progress(draft_for_score)
+            progress_score = st.slider("Progress Manual (%)", min_value=0, max_value=100, value=int(default_progress), step=5)
+            render_progress_badge(progress_score, status_pendaftaran)
+
+            st.markdown("### Portal Pendaftaran & Follow-up")
+            col13, col14, col15 = st.columns(3)
+            web_pendaftaran = col13.text_input("Link Website Pendaftaran", value=safe_text(current.get("web_pendaftaran")))
+            portal_username = col14.text_input("Username Portal", value=safe_text(current.get("portal_username")))
+            portal_password = col15.text_input("Password Portal", value=safe_text(current.get("portal_password")), type="password")
+
+            col16, col17, col18 = st.columns(3)
+            deadline = col16.text_input("Deadline", value=maybe_date(current.get("deadline")), placeholder="YYYY-MM-DD atau catatan deadline")
+            pic_default_options = tracking_ref_options(refs, "pic_admin", [], current.get("pic") or selected_student.get("pic_admin"))
+            pic = col17.selectbox("PIC", pic_default_options, index=option_index(pic_default_options, current.get("pic") or selected_student.get("pic_admin")))
+            priority_options = tracking_ref_options(refs, "prioritas", TRACKING_PRIORITY_DEFAULT, current.get("prioritas"))
+            prioritas = col18.selectbox("Prioritas", priority_options, index=option_index(priority_options, current.get("prioritas")))
+
+            next_action = st.text_input("Next Action", value=safe_text(current.get("next_action")))
+            catatan = st.text_area("Catatan", value=safe_text(current.get("catatan")))
+            updated_by = st.text_input("Updated by", value=safe_text(current.get("updated_by") or pic or "Admin"))
+
+            submitted = st.form_submit_button("Simpan Tracking", type="primary")
+            if submitted:
+                if not nama_siswa.strip() and not student_id.strip():
+                    st.error("Minimal isi Nama Siswa atau Student ID.")
+                elif not universitas.strip():
+                    st.error("Universitas wajib diisi agar tracking mudah difilter.")
+                else:
+                    payload = tracking_payload_from_form(
+                        current,
+                        selected_student,
+                        {
+                            "student_id": student_id,
+                            "nama_siswa": nama_siswa,
+                            "program": program,
+                            "universitas": universitas,
+                            "negara_kota": negara_kota,
+                            "jurusan": jurusan,
+                            "status_pendaftaran": status_pendaftaran,
+                            "sudah_submit": sudah_submit,
+                            "interview": interview,
+                            "loa": loa,
+                            "scholarship": scholarship,
+                            "visa": visa,
+                            "web_pendaftaran": web_pendaftaran,
+                            "portal_username": portal_username,
+                            "portal_password": portal_password,
+                            "deadline": deadline,
+                            "pic": pic,
+                            "prioritas": prioritas,
+                            "next_action": next_action,
+                            "catatan": catatan,
+                            "progress_score": progress_score,
+                            "updated_by": updated_by,
+                        },
+                    )
+                    result = api_post("upsert_student_tracking", {"payload": payload})
+                    if result.get("ok"):
+                        st.success(f"Student tracking berhasil disimpan. ID: {result.get('tracking_id', payload.get('tracking_id'))}")
+                        clear_cache_and_rerun()
+                    else:
+                        st.error(result.get("error", "Gagal menyimpan student tracking"))
+
+    with tabs[3]:
+        options, mapping = build_tracking_options(tracking)
+        if not options:
+            st.info("Belum ada data tracking untuk diupdate.")
+        else:
+            selected_label = st.selectbox("Pilih data tracking", options, key="progress_tracking_select")
+            selected_tracking_id = mapping[selected_label]
+            row = find_tracking(tracking, selected_tracking_id)
+            st.markdown(f"### {safe_text(row.get('nama_siswa'))} — {safe_text(row.get('universitas'))}")
+            render_progress_badge(calculate_tracking_progress(row), tracking_stage(row))
+
+            with st.form("form_update_tracking_progress"):
+                col1, col2, col3 = st.columns(3)
+                status_options = tracking_ref_options(refs, "tracking_status", TRACKING_STATUS_DEFAULT, row.get("status_pendaftaran"))
+                status_pendaftaran = col1.selectbox("Status Pendaftaran", status_options, index=option_index(status_options, row.get("status_pendaftaran")))
+                submit_options = tracking_ref_options(refs, "submit_status", TRACKING_SUBMIT_DEFAULT, row.get("sudah_submit"))
+                sudah_submit = col2.selectbox("Sudah Submit?", submit_options, index=option_index(submit_options, row.get("sudah_submit")))
+                interview_options = tracking_ref_options(refs, "interview_status", TRACKING_INTERVIEW_DEFAULT, row.get("interview"))
+                interview = col3.selectbox("Interview", interview_options, index=option_index(interview_options, row.get("interview")))
+
+                col4, col5, col6 = st.columns(3)
+                loa_options = tracking_ref_options(refs, "loa_status", TRACKING_LOA_DEFAULT, row.get("loa"))
+                loa = col4.selectbox("LOA", loa_options, index=option_index(loa_options, row.get("loa")))
+                scholarship_options = tracking_ref_options(refs, "scholarship_status", TRACKING_SCHOLARSHIP_DEFAULT, row.get("scholarship"))
+                scholarship = col5.selectbox("Scholarship", scholarship_options, index=option_index(scholarship_options, row.get("scholarship")))
+                visa_options = tracking_ref_options(refs, "visa_status", TRACKING_VISA_DEFAULT, row.get("visa"))
+                visa = col6.selectbox("Visa", visa_options, index=option_index(visa_options, row.get("visa")))
+
+                progress_score = st.slider("Progress Manual (%)", 0, 100, int(calculate_tracking_progress(row)), 5)
+                next_action = st.text_input("Next Action", value=safe_text(row.get("next_action")))
+                catatan = st.text_area("Catatan update", value=safe_text(row.get("catatan")))
+                updated_by = st.text_input("Updated by", value=safe_text(row.get("updated_by") or row.get("pic") or "Admin"))
+
+                if st.form_submit_button("Update Progress", type="primary"):
+                    result = api_post(
+                        "update_tracking_progress",
+                        {
+                            "tracking_id": selected_tracking_id,
+                            "payload": {
+                                "status_pendaftaran": status_pendaftaran,
+                                "sudah_submit": sudah_submit,
+                                "interview": interview,
+                                "loa": loa,
+                                "scholarship": scholarship,
+                                "visa": visa,
+                                "progress_score": progress_score,
+                                "next_action": next_action,
+                                "catatan": catatan,
+                                "updated_by": updated_by,
+                            },
+                        },
+                    )
+                    if result.get("ok"):
+                        st.success("Progress tracking berhasil diperbarui.")
+                        clear_cache_and_rerun()
+                    else:
+                        st.error(result.get("error", "Gagal update progress tracking"))
+
+    with tabs[4]:
+        options, mapping = build_tracking_options(tracking)
+        if not options:
+            st.info("Belum ada data portal.")
+        else:
+            selected_label = st.selectbox("Pilih akun portal", options, key="portal_tracking_select")
+            selected_tracking_id = mapping[selected_label]
+            row = find_tracking(tracking, selected_tracking_id)
+            left, right = st.columns([1.1, 1])
+            with left:
+                st.markdown("### Detail Portal")
+                st.write(f"**Nama:** {safe_text(row.get('nama_siswa'))}")
+                st.write(f"**Universitas:** {safe_text(row.get('universitas'))}")
+                st.write(f"**Website:** {safe_text(row.get('web_pendaftaran')) or '-'}")
+                if safe_text(row.get("web_pendaftaran")):
+                    st.link_button("Buka Website Pendaftaran", safe_text(row.get("web_pendaftaran")), use_container_width=True)
+                st.write(f"**Username:** `{safe_text(row.get('portal_username')) or '-'}`")
+                if st.toggle("Tampilkan password akun ini", value=False):
+                    st.write(f"**Password:** `{safe_text(row.get('portal_password')) or '-'}`")
+                else:
+                    st.write("**Password:** `••••••`")
+                st.warning("Catatan keamanan: password yang disimpan di Google Sheet tidak terenkripsi. Batasi akses file dan Apps Script hanya untuk admin yang berwenang.")
+            with right:
+                st.markdown("### Update Portal")
+                with st.form("form_update_portal"):
+                    web_pendaftaran = st.text_input("Link Website Pendaftaran", value=safe_text(row.get("web_pendaftaran")))
+                    portal_username = st.text_input("Username Portal", value=safe_text(row.get("portal_username")))
+                    portal_password = st.text_input("Password Portal", value=safe_text(row.get("portal_password")), type="password")
+                    updated_by = st.text_input("Updated by", value=safe_text(row.get("updated_by") or row.get("pic") or "Admin"))
+                    if st.form_submit_button("Simpan Akun Portal", type="primary"):
+                        result = api_post(
+                            "update_tracking_progress",
+                            {
+                                "tracking_id": selected_tracking_id,
+                                "payload": {
+                                    "web_pendaftaran": web_pendaftaran,
+                                    "portal_username": portal_username,
+                                    "portal_password": portal_password,
+                                    "updated_by": updated_by,
+                                },
+                            },
+                        )
+                        if result.get("ok"):
+                            st.success("Akun portal berhasil diperbarui.")
+                            clear_cache_and_rerun()
+                        else:
+                            st.error(result.get("error", "Gagal update akun portal"))
+
 # ---------- Dashboard ----------
 def render_dashboard(students_df: pd.DataFrame, invoices_df: pd.DataFrame, payments_df: pd.DataFrame) -> None:
     st.subheader("Dashboard")
@@ -2149,6 +2665,7 @@ def main() -> None:
         st.stop()
 
     students_df = normalize_df(as_df(data.get("students", [])))
+    tracking_df = normalize_df(as_df(data.get("student_tracking", data.get("tracking", []))))
     documents_df = normalize_df(as_df(data.get("documents", [])))
     invoices_df = normalize_df(as_df(data.get("invoices", [])))
     payments_df = normalize_df(as_df(data.get("payments", [])))
@@ -2168,6 +2685,7 @@ def main() -> None:
     PAGES = [
         "Dashboard",
         "Calon Mahasiswa",
+        "Student Tracking",
         "Dokumen",
         "Invoice & Pembayaran",
         "Bantuan & SOP",
@@ -2212,6 +2730,8 @@ def main() -> None:
         render_dashboard(students_df, invoices_df, payments_df)
     elif page == "Calon Mahasiswa":
         render_student_list(students_df, refs)
+    elif page == "Student Tracking":
+        render_student_tracking_module(students_df, tracking_df, refs)
     elif page == "Dokumen":
         render_documents_module(students_df, documents_df, refs)
     elif page == "Invoice & Pembayaran":
