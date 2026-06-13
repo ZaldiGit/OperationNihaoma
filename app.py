@@ -1202,17 +1202,26 @@ def build_tracking_options(tracking_df: pd.DataFrame) -> tuple[List[str], Dict[s
     mapping = {}
     if tracking_df.empty:
         return labels, mapping
+
     for _, row in tracking_df.iterrows():
+        row_dict = row.to_dict()
         tracking_id = safe_text(row.get("tracking_id"))
+        stage = safe_text(row.get("stage") or tracking_stage(row_dict))
+        progress = calculate_tracking_progress(row_dict)
+
         label_parts = [
             tracking_id or "NO-ID",
             safe_text(row.get("nama_siswa")),
             safe_text(row.get("universitas")),
             safe_text(row.get("program")),
+            stage,
+            f"{progress:.0f}%",
         ]
+
         label = " - ".join([part for part in label_parts if part])
         labels.append(label)
         mapping[label] = tracking_id
+
     return labels, mapping
 
 
@@ -1250,6 +1259,236 @@ def render_progress_badge(progress: float, label: str = "") -> None:
     caption = f"{pct}%" + (f" • {label}" if label else "")
     st.progress(pct / 100)
     st.caption(caption)
+
+def extract_selected_stage_from_plotly_event(event: Any) -> str:
+    """Ambil label stage dari klik/selection Plotly pie chart."""
+    try:
+        if event is None:
+            return ""
+
+        if hasattr(event, "selection"):
+            selection = event.selection
+            points = getattr(selection, "points", []) or []
+        elif isinstance(event, dict):
+            points = event.get("selection", {}).get("points", []) or []
+        else:
+            points = []
+
+        if not points:
+            return ""
+
+        point = points[0]
+        if not isinstance(point, dict):
+            point = dict(point)
+
+        for key in ["label", "x", "legendgroup", "customdata"]:
+            value = point.get(key)
+            if isinstance(value, (list, tuple)) and value:
+                value = value[0]
+            value = safe_text(value).strip()
+            if value:
+                return value
+
+    except Exception:
+        return ""
+
+    return ""
+
+
+def render_tracking_quick_update_form(row: Dict[str, Any], refs: Dict[str, Any], form_key_prefix: str = "quick") -> None:
+    tracking_id = safe_text(row.get("tracking_id"))
+    if not tracking_id:
+        st.info("Data tracking tidak valid.")
+        return
+
+    st.markdown("#### Update cepat")
+    render_progress_badge(calculate_tracking_progress(row), tracking_stage(row))
+
+    safe_key = re.sub(r"[^A-Za-z0-9_]+", "_", f"{form_key_prefix}_{tracking_id}")
+
+    with st.form(f"form_{safe_key}"):
+        col1, col2, col3 = st.columns(3)
+
+        status_options = tracking_ref_options(
+            refs, "tracking_status", TRACKING_STATUS_DEFAULT, row.get("status_pendaftaran")
+        )
+        status_pendaftaran = col1.selectbox(
+            "Status Pendaftaran",
+            status_options,
+            index=option_index(status_options, row.get("status_pendaftaran")),
+            key=f"status_{safe_key}",
+        )
+
+        submit_options = tracking_ref_options(
+            refs, "submit_status", TRACKING_SUBMIT_DEFAULT, row.get("sudah_submit")
+        )
+        sudah_submit = col2.selectbox(
+            "Sudah Submit?",
+            submit_options,
+            index=option_index(submit_options, row.get("sudah_submit")),
+            key=f"submit_{safe_key}",
+        )
+
+        interview_options = tracking_ref_options(
+            refs, "interview_status", TRACKING_INTERVIEW_DEFAULT, row.get("interview")
+        )
+        interview = col3.selectbox(
+            "Interview",
+            interview_options,
+            index=option_index(interview_options, row.get("interview")),
+            key=f"interview_{safe_key}",
+        )
+
+        col4, col5, col6 = st.columns(3)
+
+        loa_options = tracking_ref_options(
+            refs, "loa_status", TRACKING_LOA_DEFAULT, row.get("loa")
+        )
+        loa = col4.selectbox(
+            "LOA",
+            loa_options,
+            index=option_index(loa_options, row.get("loa")),
+            key=f"loa_{safe_key}",
+        )
+
+        scholarship_options = tracking_ref_options(
+            refs, "scholarship_status", TRACKING_SCHOLARSHIP_DEFAULT, row.get("scholarship")
+        )
+        scholarship = col5.selectbox(
+            "Scholarship",
+            scholarship_options,
+            index=option_index(scholarship_options, row.get("scholarship")),
+            key=f"scholarship_{safe_key}",
+        )
+
+        visa_options = tracking_ref_options(
+            refs, "visa_status", TRACKING_VISA_DEFAULT, row.get("visa")
+        )
+        visa = col6.selectbox(
+            "Visa",
+            visa_options,
+            index=option_index(visa_options, row.get("visa")),
+            key=f"visa_{safe_key}",
+        )
+
+        progress_score = st.slider(
+            "Progress Manual (%)",
+            0,
+            100,
+            int(calculate_tracking_progress(row)),
+            5,
+            key=f"progress_{safe_key}",
+        )
+
+        next_action = st.text_input(
+            "Next Action",
+            value=safe_text(row.get("next_action")),
+            key=f"next_{safe_key}",
+        )
+
+        catatan = st.text_area(
+            "Catatan update",
+            value=safe_text(row.get("catatan")),
+            key=f"note_{safe_key}",
+        )
+
+        updated_by = st.text_input(
+            "Updated by",
+            value=safe_text(row.get("updated_by") or row.get("pic") or "Admin"),
+            key=f"by_{safe_key}",
+        )
+
+        if st.form_submit_button("Simpan Update", type="primary"):
+            result = api_post(
+                "update_tracking_progress",
+                {
+                    "tracking_id": tracking_id,
+                    "payload": {
+                        "status_pendaftaran": status_pendaftaran,
+                        "sudah_submit": sudah_submit,
+                        "interview": interview,
+                        "loa": loa,
+                        "scholarship": scholarship,
+                        "visa": visa,
+                        "progress_score": progress_score,
+                        "next_action": next_action,
+                        "catatan": catatan,
+                        "updated_by": updated_by,
+                    },
+                },
+            )
+
+            if result.get("ok"):
+                st.success("Progress tracking berhasil diperbarui.")
+                st.session_state.pop("tracking_selected_stage", None)
+                clear_cache_and_rerun()
+            else:
+                st.error(result.get("error", "Gagal update progress tracking"))
+
+
+def render_tracking_stage_panel(stage: str, stage_rows: pd.DataFrame, refs: Dict[str, Any]) -> None:
+    st.markdown(f"### Status: {stage}")
+    st.caption(f"Total data: {len(stage_rows)}")
+
+    if stage_rows.empty:
+        st.info("Tidak ada data pada status ini.")
+        return
+
+    show_cols = [
+        "tracking_id",
+        "nama_siswa",
+        "program",
+        "universitas",
+        "jurusan",
+        "stage",
+        "progress_percent",
+        "deadline",
+        "pic",
+        "prioritas",
+        "next_action",
+    ]
+
+    display = stage_rows[[c for c in show_cols if c in stage_rows.columns]].copy()
+
+    if "progress_percent" in display.columns:
+        display["progress_percent"] = display["progress_percent"].apply(lambda x: f"{to_number(x):.0f}%")
+
+    st.dataframe(display, use_container_width=True, hide_index=True)
+
+    options, mapping = build_tracking_options(stage_rows)
+
+    if options:
+        selected_label = st.selectbox(
+            "Pilih data untuk update langsung",
+            options,
+            key=f"dialog_select_{stage}",
+        )
+
+        selected_tracking_id = mapping[selected_label]
+        selected_row = find_tracking(stage_rows, selected_tracking_id)
+
+        st.divider()
+        st.write(
+            f"**{safe_text(selected_row.get('nama_siswa'))}** — "
+            f"{safe_text(selected_row.get('universitas'))} — "
+            f"{safe_text(selected_row.get('program'))}"
+        )
+
+        render_tracking_quick_update_form(selected_row, refs, form_key_prefix="dialog")
+
+    if st.button("Tutup", key=f"close_stage_dialog_{stage}"):
+        st.session_state.pop("tracking_selected_stage", None)
+        st.rerun()
+
+
+if hasattr(st, "dialog"):
+    @st.dialog("Detail Student Tracking")
+    def render_tracking_stage_dialog(stage: str, stage_rows: pd.DataFrame, refs: Dict[str, Any]) -> None:
+        render_tracking_stage_panel(stage, stage_rows, refs)
+else:
+    def render_tracking_stage_dialog(stage: str, stage_rows: pd.DataFrame, refs: Dict[str, Any]) -> None:
+        st.warning("Versi Streamlit ini belum mendukung pop-up dialog. Detail ditampilkan di halaman.")
+        render_tracking_stage_panel(stage, stage_rows, refs)
 
 
 def tracking_payload_from_form(
@@ -1307,7 +1546,36 @@ def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.Da
                 status_df = tracking.groupby("stage", dropna=False).size().reset_index(name="jumlah").sort_values("jumlah", ascending=False)
                 fig_stage = px.pie(status_df, names="stage", values="jumlah", color_discrete_sequence=ORANGE_COLORS)
                 fig_stage = style_pie_chart(fig_stage, "Distribusi Progress Student", hole=0.46)
-                st.plotly_chart(fig_stage, use_container_width=True, config={"displayModeBar": False})
+                fig_stage.update_traces(customdata=status_df["stage"].astype(str))
+
+                try:
+                    pie_event = st.plotly_chart(
+                        fig_stage,
+                        use_container_width=True,
+                        config={"displayModeBar": False},
+                        on_select="rerun",
+                        selection_mode="points",
+                        key="tracking_stage_pie_chart",
+                    )
+                except TypeError:
+                    # Fallback untuk versi Streamlit lama yang belum support klik chart.
+                    st.plotly_chart(fig_stage, use_container_width=True, config={"displayModeBar": False})
+                    pie_event = None
+
+                selected_stage_from_chart = extract_selected_stage_from_plotly_event(pie_event)
+
+                if selected_stage_from_chart:
+                    st.session_state["tracking_selected_stage"] = selected_stage_from_chart
+
+                manual_stage = st.selectbox(
+                    "Lihat detail berdasarkan status",
+                    [""] + status_df["stage"].astype(str).tolist(),
+                    key="manual_tracking_stage_selector",
+                    help="Bisa juga klik area pie chart di atas.",
+                )
+
+                if manual_stage:
+                    st.session_state["tracking_selected_stage"] = manual_stage
             with right:
                 uni_df = (
                     tracking.groupby("universitas", dropna=False)["progress_percent"]
@@ -1332,6 +1600,11 @@ def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.Da
                 fig_uni = style_bar_chart(fig_uni, "Rata-rata Progress per Universitas")
                 fig_uni.update_traces(texttemplate="%{y:.0f}%")
                 st.plotly_chart(fig_uni, use_container_width=True, config={"displayModeBar": False})
+                selected_stage = safe_text(st.session_state.get("tracking_selected_stage"))
+
+                if selected_stage:
+                    stage_rows = tracking[tracking["stage"].astype(str) == selected_stage].copy()
+                    render_tracking_stage_dialog(selected_stage, stage_rows, refs)
 
             st.markdown("### Priority Follow-up")
             follow_cols = ["nama_siswa", "program", "universitas", "stage", "progress_percent", "deadline", "pic", "prioritas", "next_action", "catatan"]
@@ -1378,7 +1651,12 @@ def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.Da
             if not options:
                 st.info("Belum ada data untuk diedit.")
                 st.stop()
-            selected_label = st.selectbox("Pilih data tracking", options, key="edit_tracking_select")
+            selected_label = st.selectbox(
+                "Pilih data tracking",
+                options,
+                key="progress_tracking_select",
+                help="Format pilihan: Tracking ID - Nama - Universitas - Program - Stage - Progress terbaru",
+            )
             current = find_tracking(tracking, mapping[selected_label])
 
         student_labels, student_map = build_student_options(students_df)
@@ -1500,15 +1778,29 @@ def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.Da
                         st.error(result.get("error", "Gagal menyimpan student tracking"))
 
     with tabs[3]:
-        options, mapping = build_tracking_options(tracking)
+    if tracking.empty:
+        st.info("Belum ada data tracking untuk diupdate.")
+    else:
+        stage_filter_options = ["Semua"] + sorted([
+            x for x in tracking["stage"].dropna().astype(str).unique().tolist() if x
+        ])
+
+        selected_stage_filter = st.selectbox(
+            "Filter stage / status",
+            stage_filter_options,
+            key="progress_stage_filter",
+        )
+
+        progress_pool = tracking.copy()
+
+        if selected_stage_filter != "Semua":
+            progress_pool = progress_pool[progress_pool["stage"].astype(str) == selected_stage_filter]
+
+        options, mapping = build_tracking_options(progress_pool)
+
         if not options:
-            st.info("Belum ada data tracking untuk diupdate.")
+            st.info("Tidak ada data pada filter stage ini.")
         else:
-            selected_label = st.selectbox("Pilih data tracking", options, key="progress_tracking_select")
-            selected_tracking_id = mapping[selected_label]
-            row = find_tracking(tracking, selected_tracking_id)
-            st.markdown(f"### {safe_text(row.get('nama_siswa'))} — {safe_text(row.get('universitas'))}")
-            render_progress_badge(calculate_tracking_progress(row), tracking_stage(row))
 
             with st.form("form_update_tracking_progress"):
                 col1, col2, col3 = st.columns(3)
@@ -1564,7 +1856,7 @@ def render_student_tracking_module(students_df: pd.DataFrame, tracking_df: pd.Da
         else:
             selected_label = st.selectbox("Pilih akun portal", options, key="portal_tracking_select")
             selected_tracking_id = mapping[selected_label]
-            row = find_tracking(tracking, selected_tracking_id)
+            row = find_tracking(progress_pool, selected_tracking_id)
             left, right = st.columns([1.1, 1])
             with left:
                 st.markdown("### Detail Portal")
