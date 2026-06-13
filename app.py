@@ -1865,7 +1865,7 @@ def render_student_list(students_df: pd.DataFrame, refs: Dict[str, Any]) -> None
                         else:
                             result = api_post("delete_student", {"student_id": delete_id})
                             if result.get("ok"):
-                                st.success("PDF styled berhasil dibuat.")
+                                st.success("Data mahasiswa berhasil dihapus.")
                                 if result.get("kode_invoice"):
                                     st.write(f"**Kode Invoice:** {safe_text(result.get('kode_invoice'))}")
                                 if result.get("file_name"):
